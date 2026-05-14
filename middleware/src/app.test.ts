@@ -21,7 +21,30 @@ function setup() {
 describe("middleware scaffold", () => {
   it("validates required environment", () => {
     expect(() => loadEnv({ NODE_ENV: "production", PORT: "3001" } as any)).toThrow();
+    const defaultDevEnv = loadEnv({ NODE_ENV: "development", PORT: "3001" } as any);
+    expect(defaultDevEnv.APP_REPOSITORY_MODE).toBe("auto");
+    expect(defaultDevEnv.MYSQL_HOST).toBeUndefined();
     expect(loadEnv({ ...testEnv, PORT: "3002" } as any).PORT).toBe(3002);
+    expect(loadEnv({ ...testEnv, MOCK_MODE: "true" } as any).MOCK_MODE).toBe(true);
+    expect(loadEnv({ ...testEnv, MOCK_MODE: " YES " } as any).MOCK_MODE).toBe(true);
+    expect(loadEnv({ ...testEnv, MOCK_MODE: "false" } as any).MOCK_MODE).toBe(false);
+    expect(() =>
+      loadEnv({
+        NODE_ENV: "development",
+        PORT: "3001",
+        APP_REPOSITORY_MODE: "mysql",
+        SESSION_SECRET: "01234567890123456789012345678901",
+      } as any),
+    ).toThrow(/MYSQL_HOST/);
+    expect(() => loadEnv({ ...testEnv, NODE_ENV: "production", MOCK_MODE: "true" } as any)).toThrow(
+      /MOCK_MODE/,
+    );
+    expect(() => loadEnv({ ...testEnv, NODE_ENV: "production", LLM_SERVICE: undefined } as any)).toThrow(
+      /LLM_SERVICE/,
+    );
+    expect(() => loadEnv({ ...testEnv, NODE_ENV: "production", LLM_MODEL_ID: undefined } as any)).toThrow(
+      /LLM_MODEL_ID/,
+    );
   });
 
   it("serves health without authentication", async () => {
@@ -46,6 +69,31 @@ describe("middleware scaffold", () => {
     const [session] = [...repository.sessions.values()];
     expect(session.groundxUsername).toBe("gx-user");
     expect(decryptSecret(session.groundxApiKeyEnc!, testEnv.SESSION_SECRET)).toBe("groundx-api-key");
+  });
+
+  it("accepts Basic auth credentials when auth request bodies are absent or malformed", async () => {
+    const { app, partnerClient } = setup();
+
+    await request(app)
+      .post("/api/auth/login")
+      .set("Authorization", `Basic ${Buffer.from("pat@example.com:secret").toString("base64")}`)
+      .set("Content-Type", "text/plain")
+      .send("not-json")
+      .expect(200);
+
+    await request(app)
+      .post("/api/auth/register")
+      .set("Authorization", `Basic ${Buffer.from("pat@example.com:secret").toString("base64")}`)
+      .set("Content-Type", "text/plain")
+      .send("not-json")
+      .expect(200);
+
+    expect(partnerClient.calls.map((call) => call.name)).toEqual([
+      "loginCustomer",
+      "createApiKey",
+      "registerCustomer",
+      "createApiKey",
+    ]);
   });
 
   it("logs in, resolves /auth/me, and logs out by deleting the local session", async () => {
@@ -238,5 +286,28 @@ describe("middleware scaffold", () => {
     await agent.get("/api/apikey").expect(429, { error: "Partner failed" });
     await agent.post("/api/v1/search/documents").send({ query: "hello" }).expect(503, { error: "GroundX failed" });
     await agent.post("/api/llm/chat/completions").send({ messages: [] }).expect(502, { error: "LLM failed" });
+  });
+
+  it("returns safe upstream status context for direct Partner auth failures", async () => {
+    class LoginErrorPartnerClient extends FakePartnerClient implements GroundXPartnerClient {
+      async loginCustomer(): Promise<never> {
+        const { upstreamError } = await import("./services/http.js");
+        throw await upstreamError(Response.json({ message: "Invalid customer credentials" }, { status: 401 }), "GroundX login failed");
+      }
+    }
+
+    const repository = new MemoryAppRepository();
+    const app = createApp({
+      env: testEnv,
+      repository,
+      partnerClient: new LoginErrorPartnerClient(),
+      groundxClient: new FakeGroundXClient(),
+      llmClient: new FakeLlmClient(),
+    });
+
+    await request(app).post("/api/auth/login").send({ email: "pat@example.com", password: "bad" }).expect(401, {
+      error: "GroundX login failed: Invalid customer credentials",
+      upstreamStatus: 401,
+    });
   });
 });

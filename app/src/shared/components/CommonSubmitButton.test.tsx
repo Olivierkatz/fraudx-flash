@@ -30,4 +30,12 @@ describe("CommonSubmitButton", () => {
 
     expect(screen.getByRole("button", { name: "Saving" })).toBeDisabled();
   });
+
+  it("disables and marks the button busy while submitting", () => {
+    render(<CommonSubmitButton submitting>Save</CommonSubmitButton>);
+
+    const button = screen.getByRole("button", { name: "Save" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+  });
 });

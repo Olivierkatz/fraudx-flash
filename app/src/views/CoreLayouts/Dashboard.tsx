@@ -1,4 +1,6 @@
 import AccountCircleOutlinedIcon from "@mui/icons-material/AccountCircleOutlined";
+import AlternateEmailOutlinedIcon from "@mui/icons-material/AlternateEmailOutlined";
+import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -27,6 +29,7 @@ import {
   BODY_ON_DARK,
   BODY_TEXT,
   BORDER,
+  CYAN,
   FONT_SIZE_LABEL,
   FONT_WEIGHT_LABEL,
   GREEN,
@@ -195,8 +198,12 @@ export const Dashboard = () => {
   };
 
   const accountMenuItems: DropdownMenuItemConfig[] = [
-    ...(user?.email ? [{ label: user.email, onClick: () => undefined }] : []),
-    ...(user?.username ? [{ label: `Account ${user.username}`, onClick: () => undefined }] : []),
+    ...(user?.email
+      ? [{ label: user.email, onClick: () => undefined, icon: <AlternateEmailOutlinedIcon fontSize="small" />, disabled: true }]
+      : []),
+    ...(user?.username
+      ? [{ label: `Account ${user.username}`, onClick: () => undefined, icon: <BadgeOutlinedIcon fontSize="small" />, disabled: true, dividerAfter: true }]
+      : []),
     { label: "Logout", onClick: handleLogout, icon: <LogoutOutlinedIcon fontSize="small" /> },
   ];
 
@@ -252,7 +259,16 @@ export const Dashboard = () => {
                   aria-expanded={open ? "true" : undefined}
                   disableRipple
                   onClick={onClick}
-                  sx={{ color: NAVY, "&:hover": { backgroundColor: alpha(NAVY, 0.08) } }}
+                  sx={{
+                    backgroundColor: CYAN,
+                    color: NAVY,
+                    height: 44,
+                    width: 44,
+                    "&:hover": { backgroundColor: alpha(CYAN, 0.8) },
+                    "& .MuiSvgIcon-root": {
+                      fontSize: 30,
+                    },
+                  }}
                 >
                   <AccountCircleOutlinedIcon />
                 </IconButton>
@@ -262,10 +278,11 @@ export const Dashboard = () => {
           {isLoading ? <LinearProgress /> : null}
         </AppBar>
 
-        <Box component="main" sx={{ flex: 1, minWidth: 0, p: { xs: 2, sm: 3, md: MAIN_CONTENT_PADDING } }}>
-          <Typography component="h1" variant="h2" sx={{ mb: 3 }}>
-            {currentPageTitle}
-          </Typography>
+        <Box
+          component="main"
+          aria-label={currentPageTitle}
+          sx={{ flex: 1, minWidth: 0, p: { xs: 2, sm: 3, md: MAIN_CONTENT_PADDING } }}
+        >
           <Outlet />
         </Box>
       </Box>

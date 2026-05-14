@@ -22,7 +22,7 @@ describe("appConfig", () => {
       defaultPageSize: 20,
     });
     expect(DEFAULT_APP_CONFIG.legal).toEqual({
-      termsUrl: "https://www.groundx.ai/",
+      termsUrl: "https://www.eyelevel.ai/product/terms-conditions",
     });
     expect(DEFAULT_APP_CONFIG.onboarding.enabled).toBe(true);
     expect(DEFAULT_APP_CONFIG.onboarding.steps.map((step) => step.id)).toEqual([

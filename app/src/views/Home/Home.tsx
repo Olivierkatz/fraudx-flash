@@ -67,18 +67,24 @@ export const Home = () => {
         }}
       >
         {summaryCards.map((card) => (
-          <GxCard key={card.label} radius="sm">
-            <Stack spacing={1.5}>
+          <GxCard key={card.label} sx={{ minHeight: 160, position: "relative" }}>
+            <Stack spacing={1.5} sx={{ pr: 7 }}>
               <Box
                 sx={{
                   alignItems: "center",
                   backgroundColor: TINT,
-                  borderRadius: 1.5,
+                  borderRadius: "50%",
                   color: NAVY,
                   display: "flex",
-                  height: 40,
+                  height: 48,
                   justifyContent: "center",
-                  width: 40,
+                  position: "absolute",
+                  right: 16,
+                  top: 16,
+                  width: 48,
+                  "& .MuiSvgIcon-root": {
+                    fontSize: 28,
+                  },
                 }}
               >
                 {card.icon}

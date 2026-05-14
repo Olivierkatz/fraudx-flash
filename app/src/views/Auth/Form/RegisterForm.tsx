@@ -129,7 +129,7 @@ export const RegisterForm: FC<RegisterFormProps> = ({ values, onSubmit }) => {
         )}
       </FormGroup>
 
-      <CommonSubmitButton type="submit" id="register-submit" endIcon={<TaskAltIcon />} sx={{ m: 0, mt: 4, height: 48 }} fullWidth>
+      <CommonSubmitButton type="submit" id="register-submit" submitting={formik.isSubmitting} endIcon={<TaskAltIcon />} sx={{ m: 0, mt: 4, height: 48 }} fullWidth>
         Register
       </CommonSubmitButton>
     </form>

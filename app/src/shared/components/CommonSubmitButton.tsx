@@ -19,6 +19,7 @@
 
 import { FC, MouseEvent, ReactNode } from "react";
 import Button, { ButtonProps } from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
 
 import {
   BORDER_RADIUS_PILL,
@@ -34,6 +35,8 @@ interface CommonSubmitButtonProps extends ButtonProps {
   invert?: boolean;
   /** Render label in UPPERCASE. Defaults to true because most primary CTAs use it. */
   isUppercase?: boolean;
+  /** Disable the button and show an inline progress indicator for in-flight form submissions. */
+  submitting?: boolean;
   children: ReactNode;
   onClick?: (e: MouseEvent<HTMLElement>) => void;
 }
@@ -44,13 +47,17 @@ export const CommonSubmitButton: FC<CommonSubmitButtonProps> = ({
   fullWidth = false,
   invert = false,
   isUppercase = true,
+  submitting = false,
   type = "button",
   ...props
 }) => {
+  const disabled = Boolean(props.disabled || submitting);
   return (
     <Button
       {...props}
+      aria-busy={submitting || undefined}
       disableRipple
+      disabled={disabled}
       fullWidth={fullWidth}
       onClick={onClick}
       type={type}
@@ -68,9 +75,22 @@ export const CommonSubmitButton: FC<CommonSubmitButtonProps> = ({
           color: invert ? NAVY : GREEN,
           boxShadow: "none",
         },
+        "&.Mui-disabled": {
+          backgroundColor: invert ? NAVY : GREEN,
+          color: invert ? GREEN : NAVY,
+          opacity: 0.7,
+        },
         ...props.sx,
       }}
     >
+      {submitting && (
+        <CircularProgress
+          aria-hidden="true"
+          size={16}
+          thickness={5}
+          sx={{ color: "currentColor", mr: 1 }}
+        />
+      )}
       {children}
     </Button>
   );

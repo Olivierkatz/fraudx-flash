@@ -19,6 +19,18 @@ function basicCredentials(req: Request): { email?: string; password?: string } {
   return { email: decoded.slice(0, separator), password: decoded.slice(separator + 1) };
 }
 
+function requestBodyObject(req: Request): Record<string, unknown> {
+  return req.body && typeof req.body === "object" && !Array.isArray(req.body)
+    ? (req.body as Record<string, unknown>)
+    : {};
+}
+
+function stringRecord(input: unknown): Record<string, string | undefined> {
+  return input && typeof input === "object" && !Array.isArray(input)
+    ? (input as Record<string, string | undefined>)
+    : {};
+}
+
 function parseMetadataPatch(body: unknown): { onboardingState?: string | null } | { error: string } {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return { error: "Metadata payload must be an object" };
@@ -65,10 +77,10 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
   app.post("/api/auth/register", async (req, res, next) => {
     try {
       const credentials = basicCredentials(req);
-      const body = req.body as { customer?: Record<string, string | undefined> } & Record<string, string | undefined>;
-      const customer = body.customer ?? body;
-      const email = body.email ?? credentials.email;
-      const password = body.password ?? credentials.password;
+      const body = requestBodyObject(req);
+      const customer = stringRecord(body.customer ?? body);
+      const email = typeof body.email === "string" ? body.email : credentials.email;
+      const password = typeof body.password === "string" ? body.password : credentials.password;
       const { first, last, company, partnerUserId, phone } = customer;
       if (!email || !password) {
         res.status(400).json({ error: "Email and password are required" });
@@ -89,7 +101,7 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
   app.post("/api/auth/login", async (req, res, next) => {
     try {
       const credentials = basicCredentials(req);
-      const body = req.body as Record<string, string | undefined>;
+      const body = stringRecord(requestBodyObject(req));
       const email = body.email ?? credentials.email;
       const password = body.password ?? credentials.password;
       if (!email || !password) {
@@ -150,7 +162,9 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
 
   app.post("/api/auth/password/reset", async (req, res, next) => {
     try {
-      const { email } = (req.body as { customer?: { email?: string }; email?: string }).customer ?? req.body;
+      const body = requestBodyObject(req);
+      const payload = stringRecord(body.customer ?? body);
+      const { email } = payload;
       if (!email) {
         res.status(400).json({ error: "Email is required" });
         return;
@@ -164,7 +178,7 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
 
   app.post("/api/auth/password/confirm", async (req, res, next) => {
     try {
-      const { email, newPassword, code } = req.body as Record<string, string | undefined>;
+      const { email, newPassword, code } = stringRecord(requestBodyObject(req));
       if (!email || !newPassword || !code) {
         res.status(400).json({ error: "Email, new password, and code are required" });
         return;
@@ -225,7 +239,11 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
 
   app.use((error: any, _req: Request, res: Response, _next: express.NextFunction) => {
     const status = Number(error?.status) || 500;
-    res.status(status).json({ error: error?.message ?? "Unexpected middleware error" });
+    const payload: { error: string; upstreamStatus?: number } = {
+      error: error?.message ?? "Unexpected middleware error",
+    };
+    if (Number.isFinite(error?.upstreamStatus)) payload.upstreamStatus = Number(error.upstreamStatus);
+    res.status(status).json(payload);
   });
 
   return app;

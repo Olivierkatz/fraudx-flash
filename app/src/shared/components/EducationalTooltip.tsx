@@ -43,7 +43,10 @@ export function EducationalTooltip({
         sx={{
           color: DARK_GREY,
           flexShrink: 0,
-          ml: 0.5,
+          height: 24,
+          ml: 1,
+          p: 0.25,
+          width: 24,
           "&:hover": {
             color: NAVY,
           },

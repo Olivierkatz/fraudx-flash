@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 
 import { api } from "@/api";
@@ -63,6 +63,19 @@ describe("Register screen", () => {
     expect(sessionStorage.getItem("n")).toBeNull();
   });
 
+  it("disables submit during registration so duplicate clicks do not send duplicate requests", async () => {
+    mockedApi.register.mockReturnValueOnce(new Promise(() => undefined) as any);
+
+    renderRegisterRoute(inviteRoute("pat@company.com"));
+    await screen.findByDisplayValue("pat@company.com");
+    const submit = screen.getByRole("button", { name: /register/i });
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(submit).toBeDisabled());
+    fireEvent.click(submit);
+    expect(mockedApi.register).toHaveBeenCalledTimes(1);
+  });
+
   it("blocks personal email domains before calling the registration API", async () => {
     renderRegisterRoute(inviteRoute("pat@gmail.com"));
     await screen.findByDisplayValue("pat@gmail.com");
@@ -92,7 +105,7 @@ describe("Register screen", () => {
 
     expect(await screen.findByRole("link", { name: /end user license agreement/i })).toHaveAttribute(
       "href",
-      "https://www.groundx.ai/"
+      "https://www.eyelevel.ai/product/terms-conditions"
     );
   });
 });

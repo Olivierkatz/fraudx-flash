@@ -55,6 +55,7 @@ export function GxSectionHeader({ label, education, action }: GxSectionHeaderPro
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
+          gap: 0.5,
           minWidth: 0,
         }}
       >

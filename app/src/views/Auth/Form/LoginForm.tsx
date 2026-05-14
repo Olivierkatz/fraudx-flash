@@ -104,7 +104,7 @@ export const LoginForm: FC<LoginFormProps> = ({ values, forgotPassword, onSubmit
 
       {forgotPassword}
 
-      <CommonSubmitButton type="submit" id="login-submit" sx={{ m: 0, mt: 4, height: 48 }} fullWidth>
+      <CommonSubmitButton type="submit" id="login-submit" submitting={formik.isSubmitting} sx={{ m: 0, mt: 4, height: 48 }} fullWidth>
         Continue
       </CommonSubmitButton>
     </form>

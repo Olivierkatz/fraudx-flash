@@ -12,7 +12,7 @@ const env = loadEnv();
 const useMemoryRepository =
   env.APP_REPOSITORY_MODE === "memory" ||
   (env.APP_REPOSITORY_MODE === "auto" && env.NODE_ENV !== "production" && !env.MYSQL_HOST);
-const useDevClients = env.NODE_ENV !== "production" && !env.GROUNDX_PARTNER_API_KEY;
+const useDevClients = env.NODE_ENV !== "production" && env.MOCK_MODE;
 
 const repository = useMemoryRepository ? new MemoryAppRepository() : new MySqlAppRepository(env);
 await repository.createSchema();

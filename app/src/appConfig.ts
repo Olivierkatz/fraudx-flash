@@ -131,7 +131,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     defaultPageSize: numberFromEnv(import.meta.env.VITE_SDK_DEFAULT_PAGE_SIZE, 20),
   },
   legal: {
-    termsUrl: "https://www.groundx.ai/",
+    termsUrl: "https://www.eyelevel.ai/product/terms-conditions",
   },
   onboarding: {
     enabled: true,

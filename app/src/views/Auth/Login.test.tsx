@@ -53,6 +53,20 @@ describe("Login screen", () => {
     expect(sessionStorage.getItem("j")).toBeNull();
   });
 
+  it("disables submit during login so duplicate clicks do not send duplicate requests", async () => {
+    mockedApi.login.mockReturnValueOnce(new Promise(() => undefined) as any);
+
+    renderLoginRoute();
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "pat@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+    const submit = screen.getByRole("button", { name: /continue/i });
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(submit).toBeDisabled());
+    fireEvent.click(submit);
+    expect(mockedApi.login).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a message and resets fields when login fails", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mockedApi.login.mockRejectedValueOnce(new Error("Unauthorized"));

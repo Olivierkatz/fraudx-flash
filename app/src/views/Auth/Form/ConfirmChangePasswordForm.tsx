@@ -64,7 +64,7 @@ export const ConfirmChangePasswordForm: FC<ConfirmChangePasswordFormProps> = ({ 
         }}
         sx={{ mt: 2, input: { background: WHITE } }}
       />
-      <CommonSubmitButton type="submit" id="change-password-submit" sx={{ m: 0, mt: 4, height: 48 }} fullWidth>
+      <CommonSubmitButton type="submit" id="change-password-submit" submitting={formik.isSubmitting} sx={{ m: 0, mt: 4, height: 48 }} fullWidth>
         Submit
       </CommonSubmitButton>
     </form>

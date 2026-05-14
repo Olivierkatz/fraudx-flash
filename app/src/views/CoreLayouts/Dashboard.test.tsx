@@ -95,7 +95,8 @@ describe("Dashboard navigation shell", () => {
     expect(screen.queryByRole("button", { name: "Open navigation" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open account menu" })).toBeInTheDocument();
     expect(screen.getByText("GroundX Studio")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 6, name: "Home" })).toBeInTheDocument();
+    expect(screen.getByRole("main", { name: "Home" })).toBeInTheDocument();
     expect(screen.getByText("Home content")).toBeInTheDocument();
   });
 
@@ -129,7 +130,8 @@ describe("Dashboard navigation shell", () => {
     });
 
     await waitFor(() => expect(screen.queryByRole("navigation", { name: "Primary navigation" })).not.toBeInTheDocument());
-    expect(screen.getByRole("heading", { level: 1, name: "App Status" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 6, name: "App Status" })).toBeInTheDocument();
+    expect(screen.getByRole("main", { name: "App Status" })).toBeInTheDocument();
     expect(screen.getByText("App status route")).toBeInTheDocument();
   });
 
@@ -139,7 +141,7 @@ describe("Dashboard navigation shell", () => {
 
     expect(screen.getByRole("link", { name: "App Status" })).toHaveClass("active");
     expect(screen.getByRole("heading", { level: 6, name: "App Status" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "App Status" })).toBeInTheDocument();
+    expect(screen.getByRole("main", { name: "App Status" })).toBeInTheDocument();
     expect(screen.getByText("App status route")).toBeInTheDocument();
   });
 

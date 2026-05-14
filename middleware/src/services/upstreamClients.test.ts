@@ -77,8 +77,9 @@ describe("upstream fetch clients", () => {
     const client = new FetchGroundXPartnerClient(testEnv);
 
     await expect(client.loginCustomer({ email: "pat@example.com", password: "bad" })).rejects.toMatchObject({
-      message: "GroundX login failed: 401",
+      message: "GroundX login failed: Nope",
       status: 401,
+      upstreamStatus: 401,
     });
   });
 

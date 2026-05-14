@@ -15,6 +15,11 @@ on:
         description: Commit requested by the workspace runner
         required: false
         type: string
+      environment:
+        description: Build environment label. v1 publish uploads an artifact and does not create a hosted preview URL.
+        required: false
+        default: preview
+        type: string
 
 permissions:
   contents: read
@@ -51,6 +56,14 @@ jobs:
           else
             echo "No build script found; skipping build."
           fi
+
+      - name: Upload build artifact
+        if: hashFiles('app/dist/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: groundx-web-ui-build-${{ github.event.inputs.projectId || github.run_id }}
+          path: app/dist
+          if-no-files-found: error
 
       - name: Scaffold placeholder
         if: hashFiles('package.json') == ''

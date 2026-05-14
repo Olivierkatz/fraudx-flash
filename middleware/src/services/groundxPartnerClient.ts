@@ -6,7 +6,7 @@ import type {
   LoginCustomerInput,
   RegisterCustomerInput,
 } from "../types.js";
-import { basicAuth, ensureJsonHeaders, readJson } from "./http.js";
+import { basicAuth, ensureJsonHeaders, readJson, upstreamError } from "./http.js";
 
 export class FetchGroundXPartnerClient implements GroundXPartnerClient {
   constructor(private env: AppEnv) {}
@@ -91,7 +91,6 @@ export class FetchGroundXPartnerClient implements GroundXPartnerClient {
   }
 
   private async error(response: Response, label: string): Promise<Error> {
-    const body = await response.text();
-    return Object.assign(new Error(`${label}: ${response.status}`), { status: response.status, body });
+    return upstreamError(response, label);
   }
 }

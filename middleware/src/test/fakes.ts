@@ -24,11 +24,13 @@ export const testEnv: AppEnv = {
   GROUNDX_BASE_URL: "https://api.groundx.test/api/v1",
   GROUNDX_PARTNER_API_KEY: "partner-key",
   GROUNDX_ANON_API_KEY: "",
+  LLM_SERVICE: "openai",
   LLM_BASE_URL: "https://llm.test/v1",
   LLM_API_KEY: "llm-key",
   LLM_AUTH_HEADER_NAME: "Authorization",
   LLM_AUTH_SCHEME: "Bearer",
   LLM_MODEL_ID: "model",
+  MOCK_MODE: false,
 };
 
 export class FakePartnerClient implements GroundXPartnerClient {
