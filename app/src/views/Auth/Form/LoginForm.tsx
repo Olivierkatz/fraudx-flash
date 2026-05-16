@@ -28,6 +28,8 @@ const initValues = (values: LoginI): LoginI => ({
   password: values.password || "",
 });
 
+export const LOGIN_SUBMIT_LABEL = "Continue";
+
 export const LoginForm: FC<LoginFormProps> = ({ values, forgotPassword, onSubmit }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [emailHasValue, setEmailHasValue] = useState(false);
@@ -105,7 +107,7 @@ export const LoginForm: FC<LoginFormProps> = ({ values, forgotPassword, onSubmit
       {forgotPassword}
 
       <CommonSubmitButton type="submit" id="login-submit" submitting={formik.isSubmitting} sx={{ m: 0, mt: 4, height: 48 }} fullWidth>
-        Continue
+        {LOGIN_SUBMIT_LABEL}
       </CommonSubmitButton>
     </form>
   );

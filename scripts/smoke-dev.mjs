@@ -2,7 +2,10 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 
-const timeoutMs = 45_000;
+const timeoutMs = Number.parseInt(process.env.SMOKE_TIMEOUT_MS ?? "30000", 10);
+if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+  throw new Error("SMOKE_TIMEOUT_MS must be a positive integer when provided.");
+}
 const startedAt = Date.now();
 
 function sleep(ms) {

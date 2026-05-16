@@ -17,10 +17,10 @@ Open `http://localhost:5173`. The Vite frontend hot reloads on port `5173`, and 
 Express middleware restarts through `tsx watch` on port `3001`. Frontend `/api` requests
 proxy to the middleware during development.
 
-`npm run setup:env` writes `.env.local` and `middleware/.env.local`, which are ignored by
-git. The Partner API key, LLM service/provider, LLM model ID, and LLM API key belong only
-in server-side env files. Browser code must never receive GroundX, Partner, runner,
-provider, or LLM secrets.
+`npm run setup:env` writes root `.env.local` and `middleware/.env.local`, which are ignored
+by git. It does not write `app/.env.local` because browser code must never receive
+GroundX, Partner, runner, provider, or LLM secrets. The Partner API key, LLM
+service/provider, LLM model ID, and LLM API key belong only in server-side env files.
 
 Local setup enables `MOCK_MODE=true` by default. That keeps Partner, GroundX, and LLM
 responses deterministic for near-instant preview while still exercising the same
@@ -54,6 +54,9 @@ npm run test:e2e  # run frontend Playwright smoke tests
 npm run smoke:dev # verify memory-mode frontend, middleware, /api proxy, mocks, and LLM boot locally
 npm run verify:preview # canonical agent preview proof; currently aliases smoke:dev
 ```
+
+`npm run smoke:dev` and `npm run verify:preview` use a 30-second boot budget by default.
+Override with `SMOKE_TIMEOUT_MS=...` when running in an unusually cold environment.
 
 ## Production Configuration
 

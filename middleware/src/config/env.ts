@@ -3,8 +3,11 @@ import { z } from "zod";
 
 function loadLocalDotenv(source: NodeJS.ProcessEnv): void {
   if (source !== process.env || source.NODE_ENV === "test") return;
+  // Precedence is explicit runtime env > .env.local > .env. Parent processes
+  // such as the harness MCP server may set dynamic ports; local files should
+  // fill gaps, not clobber those deliberate overrides.
+  loadDotenv({ path: ".env.local", quiet: true });
   loadDotenv({ path: ".env", quiet: true });
-  loadDotenv({ path: ".env.local", override: true, quiet: true });
 }
 
 function parseBoolean(value: unknown): unknown {

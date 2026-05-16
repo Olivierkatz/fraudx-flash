@@ -43,7 +43,7 @@ vi.mock("@/appConfig", () => {
   };
 });
 
-import { Login } from "@/views/Auth/Login";
+import { Login, LOGIN_PAGE_TITLE } from "@/views/Auth/Login";
 import { Register } from "@/views/Auth/Register";
 import { ResetPassword } from "@/views/Auth/ResetPassword";
 import { Dashboard } from "@/views/CoreLayouts/Dashboard";
@@ -100,7 +100,7 @@ describe("configured app identity", () => {
   });
 
   it.each([
-    ["/auth/login", <Login />, "Login | Acme Console"],
+    ["/auth/login", <Login />, `${LOGIN_PAGE_TITLE} | Acme Console`],
     ["/auth/register", <Register />, "Register | Acme Console"],
     ["/auth/reset-password", <ResetPassword />, "Reset Password | Acme Console"],
   ])("uses the configured app name in %s document title", async (route, element, expectedTitle) => {

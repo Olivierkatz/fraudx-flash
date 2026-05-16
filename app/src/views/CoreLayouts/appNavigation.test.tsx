@@ -9,6 +9,9 @@ import {
   findNavigationItem,
 } from "./appNavigation";
 
+// Structural contract: navigation items are app-shell links, not router
+// patterns. Parameterized routes belong in ROUTER_PATHS but must not appear in
+// the side rail because they cannot be opened without concrete route params.
 const navItems = APP_NAVIGATION_SECTIONS.flatMap((section) => section.items);
 const routePathValues = new Set(Object.values(ROUTER_PATHS));
 

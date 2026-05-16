@@ -20,6 +20,8 @@ import { AuthLayout } from "./AuthLayout";
 import { AuthLogoLockup } from "./AuthLogoLockup";
 import { LoginForm } from "./Form/LoginForm";
 
+export const LOGIN_PAGE_TITLE = "Login";
+
 export const Login: FC = () => {
   const { setIsLoading } = useIsLoading();
   const { setErrorMessage } = useMessageContext();
@@ -49,7 +51,7 @@ export const Login: FC = () => {
   return (
     <AuthLayout>
       <Helmet>
-        <title>{getPageTitle("Login")}</title>
+        <title>{getPageTitle(LOGIN_PAGE_TITLE)}</title>
       </Helmet>
       <Box sx={{ mt: 8, display: "flex", flexDirection: "column", alignItems: "center" }}>
         <AuthLogoLockup />
