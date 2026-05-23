@@ -1,6 +1,13 @@
 environment: dev
 publicAccess: none
 publicHost: ""
+ingressAnnotations: {}
+acmCertificateArn: ""
+albGroupName: ""
+albScheme: internet-facing
+albTargetType: ip
+albListenPorts: '[{"HTTP":80},{"HTTPS":443}]'
+albSslRedirect: "443"
 ingressClassName: ""
 tlsSecretName: ""
 imagePullSecretName: ""

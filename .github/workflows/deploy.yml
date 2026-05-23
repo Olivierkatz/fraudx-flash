@@ -29,13 +29,18 @@ on:
       publicAccess:
         description: Frontend public access mode
         required: false
-        default: none
+        default: inherit
         type: choice
         options:
+          - inherit
           - none
           - ingress
       publicHost:
         description: Public frontend host when publicAccess is ingress
+        required: false
+        type: string
+      publicDomain:
+        description: Public DNS suffix used to derive publicHost
         required: false
         type: string
       namespace:
@@ -44,6 +49,18 @@ on:
         type: string
       ingressClassName:
         description: Kubernetes IngressClass override
+        required: false
+        type: string
+      ingressAnnotationsJson:
+        description: JSON object of additional Kubernetes Ingress annotations
+        required: false
+        type: string
+      acmCertificateArn:
+        description: AWS ACM certificate ARN for ALB Ingress
+        required: false
+        type: string
+      albGroupName:
+        description: AWS ALB IngressGroup name
         required: false
         type: string
       frontendImageRepository:
@@ -70,6 +87,7 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 concurrency:
   group: deploy-${{ github.event_name == 'push' && 'prod' || inputs.environment || 'dev' }}
@@ -78,37 +96,44 @@ concurrency:
 jobs:
   deploy:
     name: Deploy ${{ github.event_name == 'push' && 'prod' || inputs.environment || 'dev' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
     environment:
       name: ${{ github.event_name == 'push' && 'prod' || inputs.environment || 'dev' }}
     env:
       DEPLOY_ENVIRONMENT: ${{ github.event_name == 'push' && 'prod' || inputs.environment || 'dev' }}
       EXPECTED_COMMIT_SHA: ${{ inputs.commitSha || '' }}
-      K8S_NAMESPACE_INPUT: ${{ inputs.namespace || vars.K8S_NAMESPACE || '' }}
-      PUBLIC_ACCESS_INPUT: ${{ inputs.publicAccess || vars.PUBLIC_ACCESS || '' }}
-      PUBLIC_HOST_INPUT: ${{ inputs.publicHost || vars.PUBLIC_HOST || '' }}
-      INGRESS_CLASS_NAME_INPUT: ${{ inputs.ingressClassName || vars.INGRESS_CLASS_NAME || '' }}
-      FRONTEND_IMAGE_REPOSITORY_INPUT: ${{ inputs.frontendImageRepository || vars.FRONTEND_IMAGE_REPOSITORY || '' }}
-      MIDDLEWARE_IMAGE_REPOSITORY_INPUT: ${{ inputs.middlewareImageRepository || vars.MIDDLEWARE_IMAGE_REPOSITORY || '' }}
-      IMAGE_TAG_INPUT: ${{ inputs.imageTag || vars.IMAGE_TAG || '' }}
-      TLS_SECRET_NAME_INPUT: ${{ inputs.tlsSecretName || vars.TLS_SECRET_NAME || '' }}
-      IMAGE_PULL_SECRET_NAME_INPUT: ${{ inputs.imagePullSecretName || vars.IMAGE_PULL_SECRET_NAME || '' }}
-      REGISTRY: ${{ vars.CONTAINER_REGISTRY || 'ghcr.io' }}
-      MIDDLEWARE_SECRET_NAME: ${{ vars.MIDDLEWARE_SECRET_NAME || 'groundx-web-ui-middleware' }}
-      MIDDLEWARE_NODE_ENV: ${{ vars.MIDDLEWARE_NODE_ENV || 'production' }}
-      APP_REPOSITORY_MODE: ${{ vars.APP_REPOSITORY_MODE || 'mysql' }}
-      MOCK_MODE: ${{ vars.MOCK_MODE || 'false' }}
-      ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN || '' }}
-      GROUNDX_BASE_URL: ${{ vars.GROUNDX_BASE_URL || 'https://api.groundx.ai/api/v1' }}
-      LLM_SERVICE: ${{ vars.LLM_SERVICE || '' }}
-      LLM_BASE_URL: ${{ vars.LLM_BASE_URL || '' }}
-      LLM_MODEL_ID: ${{ vars.LLM_MODEL_ID || '' }}
-      LLM_AUTH_HEADER_NAME: ${{ vars.LLM_AUTH_HEADER_NAME || 'Authorization' }}
-      LLM_AUTH_SCHEME: ${{ vars.LLM_AUTH_SCHEME || 'Bearer' }}
-      MYSQL_HOST: ${{ vars.MYSQL_HOST || '' }}
-      MYSQL_PORT: ${{ vars.MYSQL_PORT || '3306' }}
-      MYSQL_DATABASE: ${{ vars.MYSQL_DATABASE || '' }}
-      MYSQL_USER: ${{ vars.MYSQL_USER || '' }}
+      K8S_NAMESPACE_INPUT: ${{ inputs.namespace || vars.K8S_NAMESPACE || secrets.K8S_NAMESPACE || '' }}
+      PUBLIC_ACCESS_INPUT: ${{ (inputs.publicAccess != 'inherit' && inputs.publicAccess) || vars.PUBLIC_ACCESS || secrets.PUBLIC_ACCESS || '' }}
+      PUBLIC_HOST_INPUT: ${{ inputs.publicHost || vars.PUBLIC_HOST || secrets.PUBLIC_HOST || '' }}
+      PUBLIC_DOMAIN_INPUT: ${{ inputs.publicDomain || vars.PUBLIC_DOMAIN || secrets.PUBLIC_DOMAIN || '' }}
+      INGRESS_CLASS_NAME_INPUT: ${{ inputs.ingressClassName || vars.INGRESS_CLASS_NAME || secrets.INGRESS_CLASS_NAME || '' }}
+      INGRESS_ANNOTATIONS_JSON_INPUT: ${{ inputs.ingressAnnotationsJson || vars.INGRESS_ANNOTATIONS_JSON || '{}' }}
+      ACM_CERTIFICATE_ARN_INPUT: ${{ inputs.acmCertificateArn || vars.ACM_CERTIFICATE_ARN || secrets.ACM_CERTIFICATE_ARN || '' }}
+      ALB_GROUP_NAME_INPUT: ${{ inputs.albGroupName || vars.ALB_GROUP_NAME || secrets.ALB_GROUP_NAME || '' }}
+      FRONTEND_IMAGE_REPOSITORY_INPUT: ${{ inputs.frontendImageRepository || vars.FRONTEND_IMAGE_REPOSITORY || secrets.FRONTEND_IMAGE_REPOSITORY || '' }}
+      MIDDLEWARE_IMAGE_REPOSITORY_INPUT: ${{ inputs.middlewareImageRepository || vars.MIDDLEWARE_IMAGE_REPOSITORY || secrets.MIDDLEWARE_IMAGE_REPOSITORY || '' }}
+      IMAGE_TAG_INPUT: ${{ inputs.imageTag || vars.IMAGE_TAG || secrets.IMAGE_TAG || '' }}
+      TLS_SECRET_NAME_INPUT: ${{ inputs.tlsSecretName || vars.TLS_SECRET_NAME || secrets.TLS_SECRET_NAME || '' }}
+      IMAGE_PULL_SECRET_NAME_INPUT: ${{ inputs.imagePullSecretName || vars.IMAGE_PULL_SECRET_NAME || secrets.IMAGE_PULL_SECRET_NAME || '' }}
+      HELM_RELEASE_NAME_INPUT: ${{ vars.HELM_RELEASE_NAME || secrets.HELM_RELEASE_NAME || '' }}
+      REGISTRY_INPUT: ${{ vars.CONTAINER_REGISTRY || secrets.CONTAINER_REGISTRY || '' }}
+      ECR_AWS_REGION: ${{ vars.ECR_AWS_REGION || secrets.ECR_AWS_REGION || 'us-east-1' }}
+      AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME || secrets.AWS_ROLE_TO_ASSUME || '' }}
+      MIDDLEWARE_SECRET_NAME_INPUT: ${{ vars.MIDDLEWARE_SECRET_NAME || secrets.MIDDLEWARE_SECRET_NAME || '' }}
+      MIDDLEWARE_NODE_ENV: ${{ vars.MIDDLEWARE_NODE_ENV || secrets.MIDDLEWARE_NODE_ENV || 'production' }}
+      APP_REPOSITORY_MODE: ${{ vars.APP_REPOSITORY_MODE || secrets.APP_REPOSITORY_MODE || 'mysql' }}
+      MOCK_MODE: ${{ vars.MOCK_MODE || secrets.MOCK_MODE || 'false' }}
+      ALLOWED_ORIGIN: ${{ vars.ALLOWED_ORIGIN || secrets.ALLOWED_ORIGIN || '' }}
+      GROUNDX_BASE_URL: ${{ vars.GROUNDX_BASE_URL || secrets.GROUNDX_BASE_URL || 'https://api.groundx.ai/api/v1' }}
+      LLM_SERVICE: ${{ vars.LLM_SERVICE || secrets.LLM_SERVICE || '' }}
+      LLM_BASE_URL: ${{ vars.LLM_BASE_URL || secrets.LLM_BASE_URL || '' }}
+      LLM_MODEL_ID: ${{ vars.LLM_MODEL_ID || secrets.LLM_MODEL_ID || '' }}
+      LLM_AUTH_HEADER_NAME: ${{ vars.LLM_AUTH_HEADER_NAME || secrets.LLM_AUTH_HEADER_NAME || 'Authorization' }}
+      LLM_AUTH_SCHEME: ${{ vars.LLM_AUTH_SCHEME || secrets.LLM_AUTH_SCHEME || 'Bearer' }}
+      MYSQL_HOST: ${{ vars.MYSQL_HOST || secrets.MYSQL_HOST || '' }}
+      MYSQL_PORT: ${{ vars.MYSQL_PORT || secrets.MYSQL_PORT || '3306' }}
+      MYSQL_DATABASE: ${{ vars.MYSQL_DATABASE || secrets.MYSQL_DATABASE || '' }}
+      MYSQL_USER: ${{ vars.MYSQL_USER || secrets.MYSQL_USER || '' }}
     steps:
       - name: Check out project
         uses: actions/checkout@v4
@@ -126,26 +151,101 @@ jobs:
           lowercase() {
             printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
           }
-          image_tag="${IMAGE_TAG_INPUT:-$GITHUB_SHA}"
-          namespace="${K8S_NAMESPACE_INPUT:-groundx-web-ui-$DEPLOY_ENVIRONMENT}"
+          slugify_tag() {
+            printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//'
+          }
+          slugify_k8s_name() {
+            printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/^-+//; s/-+$//' | cut -c1-53 | sed -E 's/-+$//'
+          }
+          repo_tag="$(slugify_tag "${GITHUB_REPOSITORY##*/}")"
+          if [ -z "$repo_tag" ]; then
+            repo_tag="groundx-web-ui"
+          fi
+          repo_k8s_name="$(slugify_k8s_name "${GITHUB_REPOSITORY##*/}")"
+          if [ -z "$repo_k8s_name" ]; then
+            repo_k8s_name="groundx-web-ui"
+          fi
+          short_sha="$(printf '%s' "$GITHUB_SHA" | cut -c1-12)"
+          run_attempt="${GITHUB_RUN_ATTEMPT:-1}"
+          if [ "$DEPLOY_ENVIRONMENT" = "prod" ]; then
+            channel_tag="$repo_tag"
+            default_image_tag="${repo_tag}-${short_sha}-${run_attempt}"
+          else
+            channel_tag="${repo_tag}-${DEPLOY_ENVIRONMENT}"
+            default_image_tag="${repo_tag}-${DEPLOY_ENVIRONMENT}-${short_sha}-${run_attempt}"
+          fi
+          image_tag="$(slugify_tag "${IMAGE_TAG_INPUT:-$default_image_tag}")"
+          if [ -z "$image_tag" ]; then
+            echo "Computed image tag is empty"
+            exit 1
+          fi
+          configured_registry="${REGISTRY_INPUT:-ghcr.io}"
+          namespace="${K8S_NAMESPACE_INPUT:-${repo_k8s_name}-${DEPLOY_ENVIRONMENT}}"
+          release_name="$(slugify_k8s_name "${HELM_RELEASE_NAME_INPUT:-${repo_k8s_name}-${DEPLOY_ENVIRONMENT}}")"
+          if [ -z "$release_name" ]; then
+            echo "Computed Helm release name is empty"
+            exit 1
+          fi
+          middleware_secret_name="$(slugify_k8s_name "${MIDDLEWARE_SECRET_NAME_INPUT:-${release_name}-middleware}")"
+          if [ -z "$middleware_secret_name" ]; then
+            echo "Computed middleware secret name is empty"
+            exit 1
+          fi
           public_access="${PUBLIC_ACCESS_INPUT:-none}"
-          frontend_repo="$(lowercase "${FRONTEND_IMAGE_REPOSITORY_INPUT:-${REGISTRY}/${GITHUB_REPOSITORY}/frontend}")"
-          middleware_repo="$(lowercase "${MIDDLEWARE_IMAGE_REPOSITORY_INPUT:-${REGISTRY}/${GITHUB_REPOSITORY}/middleware}")"
+          public_domain="$(printf '%s' "$PUBLIC_DOMAIN_INPUT" | sed -E 's#^https?://##; s#/.*$##; s/^\.+//; s/\.+$//')"
+          public_host="$PUBLIC_HOST_INPUT"
+          if [ -z "$public_host" ] && [ "$public_access" = "ingress" ] && [ -n "$public_domain" ]; then
+            if [ "$DEPLOY_ENVIRONMENT" = "prod" ]; then
+              public_host="${repo_k8s_name}.${public_domain}"
+            else
+              public_host="${repo_k8s_name}-${DEPLOY_ENVIRONMENT}.${public_domain}"
+            fi
+          fi
+          frontend_repo="$(lowercase "${FRONTEND_IMAGE_REPOSITORY_INPUT:-${configured_registry}/${GITHUB_REPOSITORY}/frontend}")"
+          middleware_repo="$(lowercase "${MIDDLEWARE_IMAGE_REPOSITORY_INPUT:-${configured_registry}/${GITHUB_REPOSITORY}/middleware}")"
+          registry="$(lowercase "${REGISTRY_INPUT:-${frontend_repo%%/*}}")"
           {
             echo "image_tag=$image_tag"
+            echo "channel_tag=$channel_tag"
             echo "namespace=$namespace"
+            echo "release_name=$release_name"
+            echo "middleware_secret_name=$middleware_secret_name"
             echo "public_access=$public_access"
+            echo "public_host=$public_host"
             echo "frontend_repo=$frontend_repo"
             echo "middleware_repo=$middleware_repo"
+            echo "registry=$registry"
           } >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Configure AWS credentials for public ECR with role
+        if: steps.deploy-vars.outputs.registry == 'public.ecr.aws' && env.AWS_ROLE_TO_ASSUME != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.ECR_AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+
+      - name: Configure AWS credentials for public ECR with access keys
+        if: steps.deploy-vars.outputs.registry == 'public.ecr.aws' && env.AWS_ROLE_TO_ASSUME == ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.ECR_AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Log in to Amazon ECR Public
+        if: steps.deploy-vars.outputs.registry == 'public.ecr.aws'
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+
       - name: Log in to image registry
+        if: steps.deploy-vars.outputs.registry != 'public.ecr.aws'
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ steps.deploy-vars.outputs.registry }}
           username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
           password: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
 
@@ -155,7 +255,9 @@ jobs:
           context: .
           file: Dockerfile.frontend
           push: true
-          tags: ${{ steps.deploy-vars.outputs.frontend_repo }}:${{ steps.deploy-vars.outputs.image_tag }}
+          tags: |
+            ${{ steps.deploy-vars.outputs.frontend_repo }}:${{ steps.deploy-vars.outputs.image_tag }}
+            ${{ steps.deploy-vars.outputs.frontend_repo }}:${{ steps.deploy-vars.outputs.channel_tag }}
 
       - name: Build and push middleware image
         uses: docker/build-push-action@v6
@@ -163,7 +265,9 @@ jobs:
           context: .
           file: Dockerfile.middleware
           push: true
-          tags: ${{ steps.deploy-vars.outputs.middleware_repo }}:${{ steps.deploy-vars.outputs.image_tag }}
+          tags: |
+            ${{ steps.deploy-vars.outputs.middleware_repo }}:${{ steps.deploy-vars.outputs.image_tag }}
+            ${{ steps.deploy-vars.outputs.middleware_repo }}:${{ steps.deploy-vars.outputs.channel_tag }}
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
@@ -192,6 +296,7 @@ jobs:
         run: |
           export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
           K8S_NAMESPACE="${{ steps.deploy-vars.outputs.namespace }}"
+          MIDDLEWARE_SECRET_NAME="${{ steps.deploy-vars.outputs.middleware_secret_name }}"
           secret_file="$RUNNER_TEMP/middleware.env"
           append_optional_env() {
             key="$1"
@@ -200,6 +305,13 @@ jobs:
               printf '%s=%s\n' "$key" "$value"
             fi
           }
+          session_secret="$SESSION_SECRET"
+          if [ -z "$session_secret" ]; then
+            session_secret="$(kubectl -n "$K8S_NAMESPACE" get secret "$MIDDLEWARE_SECRET_NAME" -o jsonpath='{.data.SESSION_SECRET}' 2>/dev/null | base64 --decode || true)"
+          fi
+          if [ -z "$session_secret" ]; then
+            session_secret="$(openssl rand -base64 48)"
+          fi
           {
             printf 'NODE_ENV=%s\n' "$MIDDLEWARE_NODE_ENV"
             printf 'PORT=3001\n'
@@ -215,7 +327,7 @@ jobs:
             printf 'LLM_AUTH_HEADER_NAME=%s\n' "$LLM_AUTH_HEADER_NAME"
             printf 'LLM_AUTH_SCHEME=%s\n' "$LLM_AUTH_SCHEME"
             printf 'LLM_MODEL_ID=%s\n' "$LLM_MODEL_ID"
-            printf 'SESSION_SECRET=%s\n' "$SESSION_SECRET"
+            printf 'SESSION_SECRET=%s\n' "$session_secret"
             printf 'MYSQL_HOST=%s\n' "$MYSQL_HOST"
             printf 'MYSQL_PORT=%s\n' "$MYSQL_PORT"
             printf 'MYSQL_DATABASE=%s\n' "$MYSQL_DATABASE"
@@ -237,18 +349,21 @@ jobs:
         run: |
           export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
           K8S_NAMESPACE="${{ steps.deploy-vars.outputs.namespace }}"
-          helm upgrade --install groundx-web-ui deploy/helm/groundx-web-ui \
+          helm upgrade --install "${{ steps.deploy-vars.outputs.release_name }}" deploy/helm/groundx-web-ui \
             --namespace "$K8S_NAMESPACE" \
             --atomic \
             --wait \
             --set-string environment="$DEPLOY_ENVIRONMENT" \
             --set-string publicAccess="${{ steps.deploy-vars.outputs.public_access }}" \
-            --set-string publicHost="$PUBLIC_HOST_INPUT" \
+            --set-string publicHost="${{ steps.deploy-vars.outputs.public_host }}" \
             --set-string ingressClassName="$INGRESS_CLASS_NAME_INPUT" \
+            --set-json ingressAnnotations="$INGRESS_ANNOTATIONS_JSON_INPUT" \
+            --set-string acmCertificateArn="$ACM_CERTIFICATE_ARN_INPUT" \
+            --set-string albGroupName="$ALB_GROUP_NAME_INPUT" \
             --set-string tlsSecretName="$TLS_SECRET_NAME_INPUT" \
             --set-string imagePullSecretName="$IMAGE_PULL_SECRET_NAME_INPUT" \
             --set-string frontend.image.repository="${{ steps.deploy-vars.outputs.frontend_repo }}" \
             --set-string frontend.image.tag="${{ steps.deploy-vars.outputs.image_tag }}" \
             --set-string middleware.image.repository="${{ steps.deploy-vars.outputs.middleware_repo }}" \
             --set-string middleware.image.tag="${{ steps.deploy-vars.outputs.image_tag }}" \
-            --set-string middleware.existingSecret="$MIDDLEWARE_SECRET_NAME"
+            --set-string middleware.existingSecret="${{ steps.deploy-vars.outputs.middleware_secret_name }}"
