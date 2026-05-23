@@ -78,7 +78,20 @@ GroundX, Partner, LLM, runner, GitHub, or GitLab keys.
 ## Publish
 
 Managed repos inherit `.github/workflows/deploy.yml`. The workspace runner publish
-operation dispatches that workflow with project, branch, commit, and environment
-metadata. In v1, publish means "build and upload the web UI artifact"; it does not create
-or verify a hosted preview URL by default. Replace or extend the deploy step with your
-hosting target when you wire production hosting.
+operation dispatches that workflow with project, branch, commit, and non-secret deploy
+inputs. A push to `main` deploys `prod`; manual workflow runs can deploy `dev` or
+`prod`.
+
+Deployment uses standard Kubernetes resources through Helm:
+
+- frontend and middleware images are built from `Dockerfile.frontend` and
+  `Dockerfile.middleware`
+- the frontend serves static assets with nginx and proxies `/api/*` to the private
+  middleware `ClusterIP` Service
+- middleware is never exposed by Ingress
+- frontend Ingress is optional with `publicAccess=ingress`
+- the workflow creates the namespace idempotently before `helm upgrade --install`
+
+Secrets are not workflow dispatch inputs. Configure GitHub environment secrets such as
+`KUBE_CONFIG_DATA`, `GROUNDX_PARTNER_API_KEY`, `LLM_API_KEY`, `SESSION_SECRET`, and
+`MYSQL_PASSWORD` through the workspace runner deploy-config API.
