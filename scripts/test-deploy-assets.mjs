@@ -61,6 +61,15 @@ assert(workflow.includes("workflow_dispatch:"), "deploy workflow must support ma
 assert(workflow.includes("type: choice") && workflow.includes("- dev") && workflow.includes("- prod"), "manual deploy environment must be dev|prod");
 assert(workflow.includes('kubectl create namespace "$K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -'), "namespace creation must be idempotent");
 assert(workflow.includes("Dockerfile.frontend") && workflow.includes("Dockerfile.middleware"), "workflow must build both Docker images");
+assert(workflow.includes("lowercase()"), "workflow must define an image repository lowercase helper");
+assert(
+  workflow.includes('frontend_repo="$(lowercase "${FRONTEND_IMAGE_REPOSITORY_INPUT:-${REGISTRY}/${GITHUB_REPOSITORY}/frontend}")"'),
+  "workflow must lowercase the frontend image repository before Docker build",
+);
+assert(
+  workflow.includes('middleware_repo="$(lowercase "${MIDDLEWARE_IMAGE_REPOSITORY_INPUT:-${REGISTRY}/${GITHUB_REPOSITORY}/middleware}")"'),
+  "workflow must lowercase the middleware image repository before Docker build",
+);
 
 const dispatchInputs = workflow.match(/workflow_dispatch:\n    inputs:\n(?<body>[\s\S]*?)\n\npermissions:/)?.groups?.body ?? "";
 const dispatchInputNames = [...dispatchInputs.matchAll(/^ {6}([A-Za-z0-9_]+):/gm)].map((match) => match[1]);

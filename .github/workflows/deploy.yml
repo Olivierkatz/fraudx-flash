@@ -123,11 +123,14 @@ jobs:
       - name: Set deployment variables
         id: deploy-vars
         run: |
+          lowercase() {
+            printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+          }
           image_tag="${IMAGE_TAG_INPUT:-$GITHUB_SHA}"
           namespace="${K8S_NAMESPACE_INPUT:-groundx-web-ui-$DEPLOY_ENVIRONMENT}"
           public_access="${PUBLIC_ACCESS_INPUT:-none}"
-          frontend_repo="${FRONTEND_IMAGE_REPOSITORY_INPUT:-ghcr.io/${GITHUB_REPOSITORY}/frontend}"
-          middleware_repo="${MIDDLEWARE_IMAGE_REPOSITORY_INPUT:-ghcr.io/${GITHUB_REPOSITORY}/middleware}"
+          frontend_repo="$(lowercase "${FRONTEND_IMAGE_REPOSITORY_INPUT:-${REGISTRY}/${GITHUB_REPOSITORY}/frontend}")"
+          middleware_repo="$(lowercase "${MIDDLEWARE_IMAGE_REPOSITORY_INPUT:-${REGISTRY}/${GITHUB_REPOSITORY}/middleware}")"
           {
             echo "image_tag=$image_tag"
             echo "namespace=$namespace"
