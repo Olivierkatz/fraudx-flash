@@ -25,6 +25,7 @@ const envSchema = z.object({
   ALLOWED_ORIGIN: z.string().optional(),
   MOCK_MODE: z.preprocess(parseBoolean, z.boolean()).default(false),
   APP_REPOSITORY_MODE: z.enum(["auto", "memory", "mysql"]).default("auto"),
+  APP_AUTH_MODE: z.enum(["partner", "customer"]).default("customer"),
   MYSQL_HOST: z.string().optional(),
   MYSQL_PORT: z.coerce.number().int().positive().default(3306),
   MYSQL_DATABASE: z.string().optional(),
@@ -32,7 +33,9 @@ const envSchema = z.object({
   MYSQL_PASSWORD: z.string().optional(),
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters").default("dev-session-secret-change-before-production"),
   GROUNDX_BASE_URL: z.string().url().default("https://api.groundx.ai/api/v1"),
+  GROUNDX_WORKSPACE_API_KEY: z.string().optional(),
   GROUNDX_PARTNER_API_KEY: z.string().optional(),
+  GROUNDX_API_KEY: z.string().optional(),
   GROUNDX_ANON_API_KEY: z.string().optional(),
   LLM_SERVICE: z.string().optional(),
   LLM_BASE_URL: z.string().url().optional(),
@@ -54,11 +57,12 @@ const envSchema = z.object({
       message: "MOCK_MODE cannot be enabled in production",
     });
   }
-  if (env.NODE_ENV === "production" && !env.GROUNDX_PARTNER_API_KEY) {
+  const workspaceApiKey = env.GROUNDX_WORKSPACE_API_KEY || env.GROUNDX_PARTNER_API_KEY || env.GROUNDX_API_KEY;
+  if (env.NODE_ENV === "production" && !workspaceApiKey) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ["GROUNDX_PARTNER_API_KEY"],
-      message: "GROUNDX_PARTNER_API_KEY is required in production",
+      path: ["GROUNDX_WORKSPACE_API_KEY"],
+      message: "GROUNDX_WORKSPACE_API_KEY is required in production; legacy GROUNDX_PARTNER_API_KEY and GROUNDX_API_KEY aliases are accepted",
     });
   }
   if (env.NODE_ENV === "production" && !env.LLM_API_KEY) {
@@ -88,5 +92,11 @@ export type AppEnv = z.infer<typeof envSchema>;
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
   loadLocalDotenv(source);
-  return envSchema.parse(source);
+  const env = envSchema.parse(source);
+  const workspaceApiKey = env.GROUNDX_WORKSPACE_API_KEY || env.GROUNDX_PARTNER_API_KEY || env.GROUNDX_API_KEY;
+  return {
+    ...env,
+    GROUNDX_WORKSPACE_API_KEY: workspaceApiKey,
+    GROUNDX_PARTNER_API_KEY: env.GROUNDX_PARTNER_API_KEY || workspaceApiKey,
+  };
 }

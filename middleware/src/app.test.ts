@@ -9,12 +9,12 @@ import { SESSION_COOKIE } from "./middleware/session.js";
 import { FakeGroundXClient, FakeLlmClient, FakePartnerClient, testEnv } from "./test/fakes.js";
 import type { GroundXClient, GroundXPartnerClient, LlmClient } from "./types.js";
 
-function setup() {
+function setup(env = testEnv) {
   const repository = new MemoryAppRepository();
   const partnerClient = new FakePartnerClient();
   const groundxClient = new FakeGroundXClient();
   const llmClient = new FakeLlmClient();
-  const app = createApp({ env: testEnv, repository, partnerClient, groundxClient, llmClient });
+  const app = createApp({ env, repository, partnerClient, groundxClient, llmClient });
   return { app, repository, partnerClient, groundxClient, llmClient };
 }
 
@@ -28,6 +28,7 @@ describe("middleware scaffold", () => {
     expect(loadEnv({ ...testEnv, MOCK_MODE: "true" } as any).MOCK_MODE).toBe(true);
     expect(loadEnv({ ...testEnv, MOCK_MODE: " YES " } as any).MOCK_MODE).toBe(true);
     expect(loadEnv({ ...testEnv, MOCK_MODE: "false" } as any).MOCK_MODE).toBe(false);
+    expect(loadEnv({ ...testEnv, GROUNDX_WORKSPACE_API_KEY: undefined, GROUNDX_PARTNER_API_KEY: undefined, GROUNDX_API_KEY: "gx-key" } as any).GROUNDX_WORKSPACE_API_KEY).toBe("gx-key");
     expect(() =>
       loadEnv({
         NODE_ENV: "development",
@@ -240,6 +241,23 @@ describe("middleware scaffold", () => {
       .post("/api/llm/chat/completions")
       .send({ messages: [] })
       .expect(401, { error: "Authentication required" });
+  });
+
+  it("customer mode removes auth and Partner routes while keeping GroundX and LLM proxies", async () => {
+    const { app, groundxClient, llmClient, partnerClient } = setup({ ...testEnv, APP_AUTH_MODE: "customer" });
+
+    await request(app).post("/api/auth/login").send({ email: "pat@example.com", password: "secret" }).expect(404);
+    await request(app).post("/api/customer/login").expect(404);
+
+    await request(app).post("/api/v1/search/documents").send({ query: "hello" }).expect(200);
+    expect(groundxClient.calls.at(-1)).toMatchObject({
+      path: "/search/documents",
+      init: expect.objectContaining({ apiKey: "workspace-key", method: "POST" }),
+    });
+
+    await request(app).post("/api/llm/chat/completions").send({ messages: [] }).expect(200);
+    expect(llmClient.calls.at(-1)).toMatchObject({ path: "/chat/completions" });
+    expect(partnerClient.calls).toEqual([]);
   });
 
   it("does not send bodies on GET or HEAD proxy requests", async () => {

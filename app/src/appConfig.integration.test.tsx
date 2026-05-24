@@ -18,6 +18,11 @@ vi.mock("@/appConfig", () => {
       alt: "Acme Password Reset",
     },
   };
+  const APP_SCAFFOLD = {
+    primarySurface: "dashboard",
+    capabilities: [],
+    authMode: "partner",
+  };
   const APP_CONFIG = {
     appName: APP_NAME,
     logos: APP_LOGOS,
@@ -32,6 +37,7 @@ vi.mock("@/appConfig", () => {
       enabled: true,
       steps: [],
     },
+    scaffold: APP_SCAFFOLD,
     design: {},
   };
 
@@ -39,6 +45,8 @@ vi.mock("@/appConfig", () => {
     APP_CONFIG,
     APP_NAME,
     APP_LOGOS,
+    APP_SCAFFOLD,
+    APP_AUTH_MODE: APP_SCAFFOLD.authMode,
     getPageTitle: (pageTitle: string) => `${pageTitle} | ${APP_NAME}`,
   };
 });

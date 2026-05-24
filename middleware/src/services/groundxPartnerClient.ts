@@ -78,7 +78,7 @@ export class FetchGroundXPartnerClient implements GroundXPartnerClient {
 
   async forward(path: string, init: RequestInit & { customerKey?: string }): Promise<Response> {
     const headers = ensureJsonHeaders(init);
-    headers.set("X-API-Key", this.env.GROUNDX_PARTNER_API_KEY ?? "");
+    headers.set("X-API-Key", this.env.GROUNDX_PARTNER_API_KEY ?? this.env.GROUNDX_WORKSPACE_API_KEY ?? this.env.GROUNDX_API_KEY ?? "");
     if (init.customerKey) headers.set("X-Customer-Key", init.customerKey);
     return fetch(`${this.env.GROUNDX_BASE_URL}${path}`, { ...init, headers });
   }

@@ -24,7 +24,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import { APP_LOGOS, APP_NAME } from "@/appConfig";
+import { APP_AUTH_MODE, APP_LOGOS, APP_NAME } from "@/appConfig";
 import {
   BODY_ON_DARK,
   BODY_TEXT,
@@ -247,33 +247,35 @@ export const Dashboard = () => {
               </Typography>
             </Box>
 
-            <DropdownMenu
-              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-              transformOrigin={{ vertical: "top", horizontal: "right" }}
-              items={accountMenuItems}
-              trigger={({ onClick, open }) => (
-                <IconButton
-                  type="button"
-                  aria-label="Open account menu"
-                  aria-haspopup="menu"
-                  aria-expanded={open ? "true" : undefined}
-                  disableRipple
-                  onClick={onClick}
-                  sx={{
-                    backgroundColor: CYAN,
-                    color: NAVY,
-                    height: 44,
-                    width: 44,
-                    "&:hover": { backgroundColor: alpha(CYAN, 0.8) },
-                    "& .MuiSvgIcon-root": {
-                      fontSize: 30,
-                    },
-                  }}
-                >
-                  <AccountCircleOutlinedIcon />
-                </IconButton>
-              )}
-            />
+            {APP_AUTH_MODE === "partner" ? (
+              <DropdownMenu
+                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                transformOrigin={{ vertical: "top", horizontal: "right" }}
+                items={accountMenuItems}
+                trigger={({ onClick, open }) => (
+                  <IconButton
+                    type="button"
+                    aria-label="Open account menu"
+                    aria-haspopup="menu"
+                    aria-expanded={open ? "true" : undefined}
+                    disableRipple
+                    onClick={onClick}
+                    sx={{
+                      backgroundColor: CYAN,
+                      color: NAVY,
+                      height: 44,
+                      width: 44,
+                      "&:hover": { backgroundColor: alpha(CYAN, 0.8) },
+                      "& .MuiSvgIcon-root": {
+                        fontSize: 30,
+                      },
+                    }}
+                  >
+                    <AccountCircleOutlinedIcon />
+                  </IconButton>
+                )}
+              />
+            ) : null}
           </Toolbar>
           {isLoading ? <LinearProgress /> : null}
         </AppBar>

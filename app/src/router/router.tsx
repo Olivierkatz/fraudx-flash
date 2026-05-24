@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 
+import { APP_AUTH_MODE } from "@/appConfig";
 import { AppInitialization } from "@/AppInitialization";
 import { AppStatus } from "@/views/AppStatus/AppStatus";
 import { Banned } from "@/views/Banned/Banned";
@@ -11,6 +12,15 @@ import { Login } from "@/views/Auth/Login";
 import { Register } from "@/views/Auth/Register";
 import { ResetPassword } from "@/views/Auth/ResetPassword";
 import { ROUTER_PATHS } from "@/router/routerPaths";
+
+const authRoutes =
+  APP_AUTH_MODE === "partner"
+    ? [
+        { path: ROUTER_PATHS.AUTH_LOGIN, element: <Login /> },
+        { path: ROUTER_PATHS.AUTH_REGISTER, element: <Register /> },
+        { path: ROUTER_PATHS.AUTH_RESET_PASSWORD, element: <ResetPassword /> },
+      ]
+    : [];
 
 export const router = createBrowserRouter([
   {
@@ -29,9 +39,7 @@ export const router = createBrowserRouter([
       { path: ROUTER_PATHS.HOME, element: <Home /> },
     ],
   },
-  { path: ROUTER_PATHS.AUTH_LOGIN, element: <Login /> },
-  { path: ROUTER_PATHS.AUTH_REGISTER, element: <Register /> },
-  { path: ROUTER_PATHS.AUTH_RESET_PASSWORD, element: <ResetPassword /> },
+  ...authRoutes,
   { path: ROUTER_PATHS.HEALTH, element: <Health /> },
   { path: ROUTER_PATHS.BANNED, element: <Banned /> },
 ]);

@@ -1,6 +1,6 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import express, { type Express, type Request, type Response } from "express";
+import express, { type Express, type Request, type RequestHandler, type Response } from "express";
 import { pinoHttp } from "pino-http";
 
 import type { AppEnv } from "./config/env.js";
@@ -54,6 +54,27 @@ function parseMetadataPatch(body: unknown): { onboardingState?: string | null } 
   return { onboardingState: input.onboardingState ?? null };
 }
 
+function workspaceApiKey(env: AppEnv): string | undefined {
+  return env.GROUNDX_WORKSPACE_API_KEY ?? env.GROUNDX_PARTNER_API_KEY ?? env.GROUNDX_API_KEY ?? env.GROUNDX_ANON_API_KEY;
+}
+
+function customerModeSession(env: AppEnv): RequestHandler {
+  return (req, res, next) => {
+    const apiKey = workspaceApiKey(env);
+    if (!apiKey) {
+      res.status(503).json({ error: "GroundX workspace API key is not configured" });
+      return;
+    }
+
+    req.session = {
+      id: "customer-mode",
+      groundxUsername: "customer-mode",
+      groundxApiKey: apiKey,
+    };
+    next();
+  };
+}
+
 export interface AppDependencies {
   env: AppEnv;
   repository: AppRepository;
@@ -73,8 +94,10 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
   app.use(sessionMiddleware(env, repository));
 
   app.get("/api/healthz", (_req, res) => res.json({ status: "ok" }));
+  const requireRuntimeSession = env.APP_AUTH_MODE === "customer" ? customerModeSession(env) : requireSession;
 
-  app.post("/api/auth/register", async (req, res, next) => {
+  if (env.APP_AUTH_MODE === "partner") {
+    app.post("/api/auth/register", async (req, res, next) => {
     try {
       const credentials = basicCredentials(req);
       const body = requestBodyObject(req);
@@ -96,9 +119,9 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
     } catch (error) {
       next(error);
     }
-  });
+    });
 
-  app.post("/api/auth/login", async (req, res, next) => {
+    app.post("/api/auth/login", async (req, res, next) => {
     try {
       const credentials = basicCredentials(req);
       const body = stringRecord(requestBodyObject(req));
@@ -118,15 +141,15 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
     } catch (error) {
       next(error);
     }
-  });
+    });
 
-  app.post("/api/auth/logout", requireSession, async (req, res) => {
-    await repository.deleteSession(req.session!.id);
-    clearSessionCookie(res);
-    res.json({ success: true });
-  });
+    app.post("/api/auth/logout", requireSession, async (req, res) => {
+      await repository.deleteSession(req.session!.id);
+      clearSessionCookie(res);
+      res.json({ success: true });
+    });
 
-  app.get("/api/auth/me", requireSession, async (req, res, next) => {
+    app.get("/api/auth/me", requireSession, async (req, res, next) => {
     try {
       const [customer, metadata] = await Promise.all([
         partnerClient.getCustomer(req.session!.groundxUsername),
@@ -136,9 +159,9 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
     } catch (error) {
       next(error);
     }
-  });
+    });
 
-  app.patch("/api/me/metadata", requireSession, async (req, res, next) => {
+    app.patch("/api/me/metadata", requireSession, async (req, res, next) => {
     try {
       const patch = parseMetadataPatch(req.body);
       if ("error" in patch) {
@@ -158,9 +181,9 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
     } catch (error) {
       next(error);
     }
-  });
+    });
 
-  app.post("/api/auth/password/reset", async (req, res, next) => {
+    app.post("/api/auth/password/reset", async (req, res, next) => {
     try {
       const body = requestBodyObject(req);
       const payload = stringRecord(body.customer ?? body);
@@ -174,9 +197,9 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
     } catch (error) {
       next(error);
     }
-  });
+    });
 
-  app.post("/api/auth/password/confirm", async (req, res, next) => {
+    app.post("/api/auth/password/confirm", async (req, res, next) => {
     try {
       const { email, newPassword, code } = stringRecord(requestBodyObject(req));
       if (!email || !newPassword || !code) {
@@ -188,9 +211,10 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
     } catch (error) {
       next(error);
     }
-  });
+    });
+  }
 
-  app.use("/api/v1", requireSession, async (req: Request, res: Response, next) => {
+  app.use("/api/v1", requireRuntimeSession, async (req: Request, res: Response, next) => {
     try {
       const apiKey = req.session!.groundxApiKey ?? env.GROUNDX_ANON_API_KEY;
       if (!apiKey) {
@@ -209,22 +233,24 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
     }
   });
 
-  app.use(["/api/customer", "/api/apikey", "/api/project", "/api/bucket", "/api/group"], requireSession, async (req, res, next) => {
-    try {
-      const path = req.originalUrl.replace(/^\/api/, "");
-      const usesCustomerScopedHeader = !path.startsWith("/customer/");
-      const response = await partnerClient.forward(path, {
-        method: req.method,
-        body: ["GET", "HEAD"].includes(req.method) ? undefined : JSON.stringify(req.body ?? {}),
-        ...(usesCustomerScopedHeader ? { customerKey: req.session!.groundxUsername } : {}),
-      });
-      await sendUpstreamResponse(response, res);
-    } catch (error) {
-      next(error);
-    }
-  });
+  if (env.APP_AUTH_MODE === "partner") {
+    app.use(["/api/customer", "/api/apikey", "/api/project", "/api/bucket", "/api/group"], requireSession, async (req, res, next) => {
+      try {
+        const path = req.originalUrl.replace(/^\/api/, "");
+        const usesCustomerScopedHeader = !path.startsWith("/customer/");
+        const response = await partnerClient.forward(path, {
+          method: req.method,
+          body: ["GET", "HEAD"].includes(req.method) ? undefined : JSON.stringify(req.body ?? {}),
+          ...(usesCustomerScopedHeader ? { customerKey: req.session!.groundxUsername } : {}),
+        });
+        await sendUpstreamResponse(response, res);
+      } catch (error) {
+        next(error);
+      }
+    });
+  }
 
-  app.use("/api/llm", requireSession, async (req, res, next) => {
+  app.use("/api/llm", requireRuntimeSession, async (req, res, next) => {
     try {
       const upstreamPath = req.originalUrl.replace(/^\/api\/llm/, "") || "/";
       const response = await llmClient.forward(upstreamPath, {

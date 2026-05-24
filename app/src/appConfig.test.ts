@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { APP_LOGOS, APP_NAME, createAppConfig, DEFAULT_APP_CONFIG, getPageTitle } from "@/appConfig";
+import { APP_LOGOS, APP_NAME, APP_SCAFFOLD, createAppConfig, DEFAULT_APP_CONFIG, getPageTitle } from "@/appConfig";
 
 describe("appConfig", () => {
   it("uses the default scaffold identity when no config overrides are supplied", () => {
@@ -24,7 +24,7 @@ describe("appConfig", () => {
     expect(DEFAULT_APP_CONFIG.legal).toEqual({
       termsUrl: "https://www.eyelevel.ai/product/terms-conditions",
     });
-    expect(DEFAULT_APP_CONFIG.onboarding.enabled).toBe(true);
+    expect(DEFAULT_APP_CONFIG.onboarding.enabled).toBe(false);
     expect(DEFAULT_APP_CONFIG.onboarding.steps.map((step) => step.id)).toEqual([
       "app-shell",
       "navigation",
@@ -32,6 +32,12 @@ describe("appConfig", () => {
       "education",
       "first-widget",
     ]);
+    expect(DEFAULT_APP_CONFIG.scaffold).toEqual({
+      primarySurface: "dashboard",
+      capabilities: [],
+      authMode: "customer",
+    });
+    expect(APP_SCAFFOLD).toEqual(DEFAULT_APP_CONFIG.scaffold);
     expect(DEFAULT_APP_CONFIG.design).toEqual({});
   });
 
@@ -164,5 +170,25 @@ describe("appConfig", () => {
         primaryActionLabel: "Start",
       },
     ]);
+  });
+
+  it("allows scaffold intake to be configured from browser-safe app config", () => {
+    const config = createAppConfig({
+      scaffold: {
+        primarySurface: "single-workflow",
+        capabilities: ["chat", "reports", "document-viewer"],
+        authMode: "customer",
+      },
+      onboarding: {
+        enabled: false,
+      },
+    });
+
+    expect(config.scaffold).toEqual({
+      primarySurface: "single-workflow",
+      capabilities: ["chat", "reports", "document-viewer"],
+      authMode: "customer",
+    });
+    expect(config.onboarding.enabled).toBe(false);
   });
 });

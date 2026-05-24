@@ -1,6 +1,7 @@
 import { FC, ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { APP_AUTH_MODE } from "@/appConfig";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { ROUTER_PATHS } from "@/router/routerPaths";
 
@@ -21,6 +22,11 @@ export const AppInitialization: FC<AppInitializationProps> = ({ children }) => {
   const [isHydrating, setIsHydrating] = useState(true);
 
   useEffect(() => {
+    if (APP_AUTH_MODE === "customer") {
+      setIsHydrating(false);
+      return;
+    }
+
     let isActive = true;
 
     void (async () => {
@@ -45,5 +51,5 @@ export const AppInitialization: FC<AppInitializationProps> = ({ children }) => {
     };
   }, [auth.isLoggedIn, getUserData, navigate, setAuth]);
 
-  return <>{auth.isLoggedIn && !isHydrating ? children : <div>Loading...</div>}</>;
+  return <>{(APP_AUTH_MODE === "customer" || auth.isLoggedIn) && !isHydrating ? children : <div>Loading...</div>}</>;
 };

@@ -3,6 +3,20 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
+vi.mock("@/appConfig", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/appConfig")>();
+  const APP_SCAFFOLD = { ...actual.APP_SCAFFOLD, authMode: "partner" };
+  return {
+    ...actual,
+    APP_SCAFFOLD,
+    APP_AUTH_MODE: "partner",
+    APP_CONFIG: {
+      ...actual.APP_CONFIG,
+      scaffold: APP_SCAFFOLD,
+    },
+  };
+});
+
 import { AppInitialization } from "@/AppInitialization";
 import { Auth, AuthContext, AuthContextI } from "@/contexts/AuthContext/AuthContext";
 

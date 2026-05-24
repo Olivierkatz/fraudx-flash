@@ -8,7 +8,7 @@ repo, edit locally, commit, push, and publish.
 
 ```bash
 npm install
-PARTNER_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env
+WORKSPACE_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env
 npm run dev
 npm run verify:preview
 ```
@@ -19,8 +19,17 @@ proxy to the middleware during development.
 
 `npm run setup:env` writes root `.env.local` and `middleware/.env.local`, which are ignored
 by git. It does not write `app/.env.local` because browser code must never receive
-GroundX, Partner, runner, provider, or LLM secrets. The Partner API key, LLM
-service/provider, LLM model ID, and LLM API key belong only in server-side env files.
+GroundX, runner, provider, or LLM secrets. The Workspace API key, LLM service/provider,
+LLM model ID, and LLM API key belong only in server-side env files. `PARTNER_API_KEY`
+and `GROUNDX_API_KEY` are accepted as local setup aliases for older flows.
+
+Local setup defaults to customer mode, writing `APP_AUTH_MODE=customer` for middleware
+and `VITE_APP_AUTH_MODE=customer` for the Vite app. Use `APP_AUTH_MODE=partner` only
+when the scaffold should include Partner auth and provisioning routes.
+It also writes browser-safe scaffold intake values: `VITE_APP_PRIMARY_SURFACE`,
+`VITE_APP_CAPABILITIES`, and `VITE_APP_ONBOARDING_ENABLED`. Configure them with
+`SCAFFOLD_PRIMARY_SURFACE`, `SCAFFOLD_CAPABILITIES`, and `SCAFFOLD_ONBOARDING` when
+you already know the intended surface.
 
 Local setup enables `MOCK_MODE=true` by default. That keeps Partner, GroundX, and LLM
 responses deterministic for near-instant preview while still exercising the same
@@ -63,11 +72,14 @@ Override with `SMOKE_TIMEOUT_MS=...` when running in an unusually cold environme
 Production deployments must provide server-side middleware secrets through the deployment
 secret manager, not browser code:
 
-- `GROUNDX_PARTNER_API_KEY`
+- `GROUNDX_WORKSPACE_API_KEY`
+- `GROUNDX_PARTNER_API_KEY` (compatibility alias while Partner-mode middleware reads it)
 - `LLM_SERVICE`
 - `LLM_MODEL_ID`
 - `LLM_API_KEY`
 - `SESSION_SECRET`
+- `APP_AUTH_MODE`
+- `APP_PRIMARY_SURFACE`, `APP_CAPABILITIES`, `APP_ONBOARDING_ENABLED`
 - `APP_REPOSITORY_MODE=mysql`
 - `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`
 - `ALLOWED_ORIGIN`
@@ -97,7 +109,7 @@ Deployment uses standard Kubernetes resources through Helm:
 
 Secrets are not workflow dispatch inputs. For shared organization-level deployment,
 keep true shared credentials as GitHub organization secrets: `KUBE_CONFIG_DATA`,
-`GROUNDX_PARTNER_API_KEY`, and `MYSQL_PASSWORD`. For ECR, prefer GitHub OIDC with
+`GROUNDX_WORKSPACE_API_KEY`, and `MYSQL_PASSWORD`. For ECR, prefer GitHub OIDC with
 `AWS_ROLE_TO_ASSUME` as an organization variable; otherwise use
 `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` as organization secrets. Set
 `ECR_AWS_REGION` as an organization variable for ECR auth; ECR Public normally uses

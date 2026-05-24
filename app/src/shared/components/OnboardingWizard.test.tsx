@@ -1,6 +1,20 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/appConfig", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/appConfig")>();
+  return {
+    ...actual,
+    APP_CONFIG: {
+      ...actual.APP_CONFIG,
+      onboarding: {
+        ...actual.APP_CONFIG.onboarding,
+        enabled: true,
+      },
+    },
+  };
+});
+
 import { OnboardingContext, OnboardingContextI } from "@/contexts/OnboardingContext/OnboardingContext";
 import { GxThemeProvider } from "@/ThemeProvider";
 

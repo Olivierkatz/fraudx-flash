@@ -57,6 +57,8 @@ const middlewarePort = await freePort();
 const frontendPort = await freePort();
 const middlewareUrl = `http://localhost:${middlewarePort}`;
 const frontendUrl = `http://localhost:${frontendPort}`;
+const authMode = process.env.APP_AUTH_MODE ?? "customer";
+const viteAuthMode = process.env.VITE_APP_AUTH_MODE ?? authMode;
 
 const child = spawn("npm", ["run", "dev"], {
   detached: true,
@@ -66,12 +68,21 @@ const child = spawn("npm", ["run", "dev"], {
     ALLOWED_ORIGIN: frontendUrl,
     VITE_DEV_PORT: String(frontendPort),
     MIDDLEWARE_DEV_PORT: String(middlewarePort),
-    GROUNDX_PARTNER_API_KEY: process.env.GROUNDX_PARTNER_API_KEY ?? "smoke-partner-key",
+    GROUNDX_WORKSPACE_API_KEY: process.env.GROUNDX_WORKSPACE_API_KEY ?? process.env.GROUNDX_PARTNER_API_KEY ?? "smoke-workspace-key",
+    GROUNDX_PARTNER_API_KEY: process.env.GROUNDX_PARTNER_API_KEY ?? process.env.GROUNDX_WORKSPACE_API_KEY ?? "smoke-workspace-key",
     LLM_SERVICE: process.env.LLM_SERVICE ?? "openai",
     LLM_MODEL_ID: process.env.LLM_MODEL_ID ?? "smoke-model",
     LLM_API_KEY: process.env.LLM_API_KEY ?? "smoke-llm-key",
     MOCK_MODE: "true",
     APP_REPOSITORY_MODE: "memory",
+    APP_AUTH_MODE: authMode,
+    VITE_APP_AUTH_MODE: viteAuthMode,
+    APP_PRIMARY_SURFACE: process.env.APP_PRIMARY_SURFACE ?? "dashboard",
+    VITE_APP_PRIMARY_SURFACE: process.env.VITE_APP_PRIMARY_SURFACE ?? process.env.APP_PRIMARY_SURFACE ?? "dashboard",
+    APP_CAPABILITIES: process.env.APP_CAPABILITIES ?? "",
+    VITE_APP_CAPABILITIES: process.env.VITE_APP_CAPABILITIES ?? process.env.APP_CAPABILITIES ?? "",
+    APP_ONBOARDING_ENABLED: process.env.APP_ONBOARDING_ENABLED ?? "false",
+    VITE_APP_ONBOARDING_ENABLED: process.env.VITE_APP_ONBOARDING_ENABLED ?? process.env.APP_ONBOARDING_ENABLED ?? "false",
     MYSQL_HOST: "mysql.invalid.local",
     MYSQL_DATABASE: "smoke_should_not_be_used",
     MYSQL_USER: "smoke_should_not_be_used",
@@ -95,35 +106,45 @@ try {
   const body = await proxied.json();
   if (body.status !== "ok") throw new Error(`frontend proxy returned unexpected body: ${JSON.stringify(body)}`);
 
-  const login = await expectJson(
-    `${frontendUrl}/api/auth/login`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: "smoke@example.com", password: "dev-password" }),
-    },
-    (json) => {
-      assert(json.success === true, `login did not succeed: ${JSON.stringify(json)}`);
-      assert(json.username === "smoke@example.com", `login returned unexpected username: ${JSON.stringify(json)}`);
-    },
-  );
-  const cookie = login.response.headers.get("set-cookie")?.split(";")[0];
-  assert(cookie, "login did not set a session cookie");
+  const authHeaders = { "content-type": "application/json" };
+  if (authMode === "partner") {
+    const login = await expectJson(
+      `${frontendUrl}/api/auth/login`,
+      {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ email: "smoke@example.com", password: "dev-password" }),
+      },
+      (json) => {
+        assert(json.success === true, `login did not succeed: ${JSON.stringify(json)}`);
+        assert(json.username === "smoke@example.com", `login returned unexpected username: ${JSON.stringify(json)}`);
+      },
+    );
+    const cookie = login.response.headers.get("set-cookie")?.split(";")[0];
+    assert(cookie, "login did not set a session cookie");
+    authHeaders.cookie = cookie;
 
-  const authHeaders = { cookie, "content-type": "application/json" };
-  await expectJson(`${frontendUrl}/api/project`, { headers: authHeaders }, (json) => {
-    assert(json.mode === "development", `project route did not use mock mode: ${JSON.stringify(json)}`);
-    assert(json.projects?.some?.((project) => project.projectId === "demo-project"), `missing demo project: ${JSON.stringify(json)}`);
-  });
-  await expectJson(`${frontendUrl}/api/bucket`, { headers: authHeaders }, (json) => {
-    assert(json.buckets?.some?.((bucket) => bucket.bucketId === "demo-bucket"), `missing demo bucket: ${JSON.stringify(json)}`);
-  });
-  await expectJson(`${frontendUrl}/api/group`, { headers: authHeaders }, (json) => {
-    assert(json.groups?.some?.((group) => group.groupId === "demo-group"), `missing demo group: ${JSON.stringify(json)}`);
-  });
-  await expectJson(`${frontendUrl}/api/apikey`, { headers: authHeaders }, (json) => {
-    assert(json.apiKeys?.some?.((apiKey) => apiKey.apiKey === "dev-groundx-api-key"), `missing dev API key: ${JSON.stringify(json)}`);
-  });
+    await expectJson(`${frontendUrl}/api/project`, { headers: authHeaders }, (json) => {
+      assert(json.mode === "development", `project route did not use mock mode: ${JSON.stringify(json)}`);
+      assert(json.projects?.some?.((project) => project.projectId === "demo-project"), `missing demo project: ${JSON.stringify(json)}`);
+    });
+    await expectJson(`${frontendUrl}/api/bucket`, { headers: authHeaders }, (json) => {
+      assert(json.buckets?.some?.((bucket) => bucket.bucketId === "demo-bucket"), `missing demo bucket: ${JSON.stringify(json)}`);
+    });
+    await expectJson(`${frontendUrl}/api/group`, { headers: authHeaders }, (json) => {
+      assert(json.groups?.some?.((group) => group.groupId === "demo-group"), `missing demo group: ${JSON.stringify(json)}`);
+    });
+    await expectJson(`${frontendUrl}/api/apikey`, { headers: authHeaders }, (json) => {
+      assert(json.apiKeys?.some?.((apiKey) => apiKey.apiKey === "dev-groundx-api-key"), `missing dev API key: ${JSON.stringify(json)}`);
+    });
+  } else {
+    const loginResponse = await fetch(`${frontendUrl}/api/auth/login`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ email: "smoke@example.com", password: "dev-password" }),
+    });
+    assert(loginResponse.status === 404, `customer mode should not expose auth login; got ${loginResponse.status}`);
+  }
   await expectJson(
     `${frontendUrl}/api/v1/search/demo-bucket`,
     {
@@ -154,7 +175,7 @@ try {
     },
   );
 
-  console.log("dev smoke passed: repository=memory, mockMode=true, frontend, middleware, /api proxy, auth, mock Partner, mock GroundX, X-Ray, and mock LLM are reachable.");
+  console.log(`dev smoke passed: authMode=${authMode}, repository=memory, mockMode=true, frontend, middleware, /api proxy, mock GroundX, X-Ray, and mock LLM are reachable.`);
 } catch (error) {
   console.error(output);
   throw error;

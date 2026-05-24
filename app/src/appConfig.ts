@@ -75,6 +75,18 @@ export interface AppOnboardingConfig {
   steps: AppOnboardingStepConfig[];
 }
 
+export type AppAuthMode = "partner" | "customer";
+
+export type AppPrimarySurface = "dashboard" | "chat-driven-viewer" | "single-workflow";
+
+export type AppCapability = "chat" | "extraction" | "reports" | "ingest" | "document-viewer";
+
+export interface AppScaffoldIntakeConfig {
+  primarySurface: AppPrimarySurface;
+  capabilities: AppCapability[];
+  authMode: AppAuthMode;
+}
+
 export interface AppConfig {
   appName: string;
   logos: {
@@ -85,6 +97,7 @@ export interface AppConfig {
   legal: AppLegalConfig;
   api: AppApiConfig;
   onboarding: AppOnboardingConfig;
+  scaffold: AppScaffoldIntakeConfig;
   design: DeepPartial<AppDesignOverrides>;
 }
 
@@ -96,6 +109,7 @@ export type AppConfigOverrides = Partial<
     api: Partial<AppApiConfig>;
     legal: Partial<AppLegalConfig>;
     onboarding: Partial<AppOnboardingConfig>;
+    scaffold: Partial<AppScaffoldIntakeConfig>;
     design: DeepPartial<AppDesignOverrides>;
   }
 >;
@@ -108,6 +122,44 @@ const trimTrailingSlash = (value: string | undefined, fallback = ""): string => 
 const numberFromEnv = (value: string | undefined, fallback: number): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const booleanFromEnv = (value: string | undefined, fallback: boolean): boolean => {
+  if (value === undefined) return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return fallback;
+};
+
+const normalizedIntakeValue = (value: string | undefined): string => value?.trim().toLowerCase().replace(/[\s_]+/g, "-") ?? "";
+
+const authModeFromEnv = (value: string | undefined): AppAuthMode => (normalizedIntakeValue(value) === "partner" ? "partner" : "customer");
+
+const primarySurfaceFromEnv = (value: string | undefined): AppPrimarySurface => {
+  const normalized = normalizedIntakeValue(value);
+  if (normalized === "chat-driven-viewer" || normalized === "chat-driven" || normalized === "chat-first") return "chat-driven-viewer";
+  if (normalized === "single-workflow" || normalized === "workflow") return "single-workflow";
+  return "dashboard";
+};
+
+const capabilityFromValue = (value: string): AppCapability | null => {
+  const normalized = normalizedIntakeValue(value);
+  if (normalized === "chat") return "chat";
+  if (normalized === "extraction" || normalized === "extract") return "extraction";
+  if (normalized === "reports" || normalized === "report" || normalized === "smart-reports") return "reports";
+  if (normalized === "ingest" || normalized === "upload") return "ingest";
+  if (normalized === "document-viewer" || normalized === "documents" || normalized === "viewer") return "document-viewer";
+  return null;
+};
+
+const capabilitiesFromEnv = (value: string | undefined): AppCapability[] => {
+  const seen = new Set<AppCapability>();
+  for (const part of value?.split(",") ?? []) {
+    const capability = capabilityFromValue(part);
+    if (capability) seen.add(capability);
+  }
+  return [...seen];
 };
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
@@ -134,7 +186,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     termsUrl: "https://www.eyelevel.ai/product/terms-conditions",
   },
   onboarding: {
-    enabled: true,
+    enabled: booleanFromEnv(import.meta.env.VITE_APP_ONBOARDING_ENABLED, false),
     steps: [
       {
         id: "app-shell",
@@ -171,6 +223,11 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
       },
     ],
   },
+  scaffold: {
+    primarySurface: primarySurfaceFromEnv(import.meta.env.VITE_APP_PRIMARY_SURFACE),
+    capabilities: capabilitiesFromEnv(import.meta.env.VITE_APP_CAPABILITIES),
+    authMode: authModeFromEnv(import.meta.env.VITE_APP_AUTH_MODE),
+  },
   design: {},
 };
 
@@ -204,6 +261,11 @@ export const createAppConfig = (overrides: AppConfigOverrides = {}): AppConfig =
     ...overrides.onboarding,
     steps: overrides.onboarding?.steps ?? DEFAULT_APP_CONFIG.onboarding.steps,
   },
+  scaffold: {
+    ...DEFAULT_APP_CONFIG.scaffold,
+    ...overrides.scaffold,
+    capabilities: overrides.scaffold?.capabilities ?? DEFAULT_APP_CONFIG.scaffold.capabilities,
+  },
   design: {
     ...DEFAULT_APP_CONFIG.design,
     ...overrides.design,
@@ -215,5 +277,9 @@ export const APP_CONFIG = createAppConfig();
 export const APP_NAME = APP_CONFIG.appName;
 
 export const APP_LOGOS = APP_CONFIG.logos;
+
+export const APP_SCAFFOLD = APP_CONFIG.scaffold;
+
+export const APP_AUTH_MODE: AppAuthMode = APP_CONFIG.scaffold.authMode;
 
 export const getPageTitle = (pageTitle: string, appName = APP_NAME) => `${pageTitle} | ${appName}`;

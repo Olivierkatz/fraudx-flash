@@ -4,6 +4,20 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
+vi.mock("@/appConfig", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/appConfig")>();
+  const APP_SCAFFOLD = { ...actual.APP_SCAFFOLD, authMode: "partner" };
+  return {
+    ...actual,
+    APP_SCAFFOLD,
+    APP_AUTH_MODE: "partner",
+    APP_CONFIG: {
+      ...actual.APP_CONFIG,
+      scaffold: APP_SCAFFOLD,
+    },
+  };
+});
+
 import { Auth, AuthContext, AuthContextI } from "@/contexts/AuthContext/AuthContext";
 import { LoadingProvider } from "@/contexts/LoadingContext/LoadingContext";
 import { MessageBarProvider } from "@/contexts/MessageBarContext/MessageBarContext";

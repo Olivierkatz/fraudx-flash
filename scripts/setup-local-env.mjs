@@ -38,10 +38,13 @@ async function promptSecret(label) {
   }
 }
 
-async function readPartnerApiKey(existing) {
+async function readWorkspaceApiKey(existing) {
+  if (process.env.WORKSPACE_API_KEY) return process.env.WORKSPACE_API_KEY.trim();
   if (process.env.PARTNER_API_KEY) return process.env.PARTNER_API_KEY.trim();
+  if (process.env.GROUNDX_API_KEY) return process.env.GROUNDX_API_KEY.trim();
+  if (existing.get("GROUNDX_WORKSPACE_API_KEY")) return existing.get("GROUNDX_WORKSPACE_API_KEY");
   if (existing.get("GROUNDX_PARTNER_API_KEY")) return existing.get("GROUNDX_PARTNER_API_KEY");
-  return promptSecret("Partner API key for local middleware proxying");
+  return promptSecret("Workspace API key for local middleware proxying");
 }
 
 async function readLlmApiKey(existing, llmService) {
@@ -65,25 +68,83 @@ async function readLlmModelId(existing) {
   return promptSecret("LLM model ID for local middleware completions");
 }
 
+function readAuthMode(existing) {
+  const raw = process.env.APP_AUTH_MODE || process.env.SCAFFOLD_AUTH_MODEL || existing.get("APP_AUTH_MODE") || "customer";
+  const authMode = raw.trim().toLowerCase();
+  if (authMode === "customer" || authMode === "partner") return authMode;
+  console.error("APP_AUTH_MODE must be either customer or partner.");
+  console.error("Use APP_AUTH_MODE=partner only when the scaffold should include Partner auth and provisioning routes.");
+  process.exit(1);
+}
+
+function normalizedIntakeValue(value) {
+  return value.trim().toLowerCase().replace(/[\s_]+/g, "-");
+}
+
+function readPrimarySurface(existing) {
+  const raw = process.env.SCAFFOLD_PRIMARY_SURFACE || process.env.APP_PRIMARY_SURFACE || process.env.VITE_APP_PRIMARY_SURFACE || existing.get("APP_PRIMARY_SURFACE") || "dashboard";
+  const normalized = normalizedIntakeValue(raw);
+  if (normalized === "dashboard") return "dashboard";
+  if (normalized === "chat-driven-viewer" || normalized === "chat-driven" || normalized === "chat-first") return "chat-driven-viewer";
+  if (normalized === "single-workflow" || normalized === "workflow") return "single-workflow";
+  console.error("SCAFFOLD_PRIMARY_SURFACE must be dashboard, chat-driven-viewer, or single-workflow.");
+  process.exit(1);
+}
+
+function normalizeCapability(value) {
+  const normalized = normalizedIntakeValue(value);
+  if (normalized === "chat") return "chat";
+  if (normalized === "extraction" || normalized === "extract") return "extraction";
+  if (normalized === "reports" || normalized === "report" || normalized === "smart-reports") return "reports";
+  if (normalized === "ingest" || normalized === "upload") return "ingest";
+  if (normalized === "document-viewer" || normalized === "documents" || normalized === "viewer") return "document-viewer";
+  return "";
+}
+
+function readCapabilities(existing) {
+  const raw = process.env.SCAFFOLD_CAPABILITIES || process.env.APP_CAPABILITIES || process.env.VITE_APP_CAPABILITIES || existing.get("APP_CAPABILITIES") || "";
+  const capabilities = new Set();
+  for (const part of raw.split(",")) {
+    if (!part.trim()) continue;
+    const capability = normalizeCapability(part);
+    if (!capability) {
+      console.error("SCAFFOLD_CAPABILITIES may include chat, extraction, reports, ingest, and document-viewer only.");
+      process.exit(1);
+    }
+    capabilities.add(capability);
+  }
+  return [...capabilities].join(",");
+}
+
+function readOnboardingEnabled(existing) {
+  const raw = process.env.SCAFFOLD_ONBOARDING || process.env.APP_ONBOARDING_ENABLED || process.env.VITE_APP_ONBOARDING_ENABLED || existing.get("APP_ONBOARDING_ENABLED") || "false";
+  const normalized = raw.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return "true";
+  if (["0", "false", "no", "off"].includes(normalized)) return "false";
+  console.error("SCAFFOLD_ONBOARDING must be yes/no or true/false.");
+  process.exit(1);
+}
+
 const existing = readExistingEnv();
-const partnerApiKey = await readPartnerApiKey(existing);
-if (!partnerApiKey) {
-  console.error("PARTNER_API_KEY is required to configure the scaffolded middleware for real GroundX calls.");
-  console.error("Run: PARTNER_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env");
+const workspaceApiKey = await readWorkspaceApiKey(existing);
+if (!workspaceApiKey) {
+  console.error("WORKSPACE_API_KEY is required to configure the scaffolded middleware for real GroundX calls.");
+  console.error("Aliases accepted: PARTNER_API_KEY or GROUNDX_API_KEY.");
+  console.error("Run: WORKSPACE_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env");
   process.exit(1);
 }
 
 const llmService = await readLlmService(existing);
 if (!llmService) {
   console.error("LLM_SERVICE is required to configure the scaffolded middleware for real completions.");
-  console.error("Run: PARTNER_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env");
+  console.error("Run: WORKSPACE_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env");
   process.exit(1);
 }
 
 const llmModelId = await readLlmModelId(existing);
 if (!llmModelId) {
   console.error("LLM_MODEL_ID is required to configure the scaffolded middleware for real completions.");
-  console.error("Run: PARTNER_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env");
+  console.error("Run: WORKSPACE_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env");
   process.exit(1);
 }
 
@@ -91,9 +152,13 @@ const llmApiKey = await readLlmApiKey(existing, llmService);
 if (!llmApiKey) {
   console.error("LLM_API_KEY is required to configure the scaffolded middleware for real completions.");
   console.error("If LLM_SERVICE=openai, OPENAI_API_KEY may be used. If LLM_SERVICE=anthropic, ANTHROPIC_API_KEY may be used.");
-  console.error("Run: PARTNER_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env");
+  console.error("Run: WORKSPACE_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env");
   process.exit(1);
 }
+const authMode = readAuthMode(existing);
+const primarySurface = readPrimarySurface(existing);
+const capabilities = readCapabilities(existing);
+const onboardingEnabled = readOnboardingEnabled(existing);
 
 const envLines = [
     "NODE_ENV=development",
@@ -102,9 +167,18 @@ const envLines = [
     "ALLOWED_ORIGIN=http://localhost:5173",
     "MOCK_MODE=true",
     "APP_REPOSITORY_MODE=memory",
+    `APP_AUTH_MODE=${authMode}`,
+    `VITE_APP_AUTH_MODE=${authMode}`,
+    `APP_PRIMARY_SURFACE=${primarySurface}`,
+    `VITE_APP_PRIMARY_SURFACE=${primarySurface}`,
+    `APP_CAPABILITIES=${capabilities}`,
+    `VITE_APP_CAPABILITIES=${capabilities}`,
+    `APP_ONBOARDING_ENABLED=${onboardingEnabled}`,
+    `VITE_APP_ONBOARDING_ENABLED=${onboardingEnabled}`,
     `SESSION_SECRET=${randomBytes(32).toString("hex")}`,
     "GROUNDX_BASE_URL=https://api.groundx.ai/api/v1",
-    `GROUNDX_PARTNER_API_KEY=${partnerApiKey}`,
+    `GROUNDX_WORKSPACE_API_KEY=${workspaceApiKey}`,
+    `GROUNDX_PARTNER_API_KEY=${workspaceApiKey}`,
     "GROUNDX_ANON_API_KEY=",
     `LLM_SERVICE=${llmService}`,
     "LLM_BASE_URL=https://api.openai.com/v1",
