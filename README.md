@@ -89,10 +89,19 @@ GroundX, Partner, LLM, runner, GitHub, or GitLab keys.
 
 ## Publish
 
-Managed repos inherit `.github/workflows/deploy.yml`. The workspace runner publish
-operation dispatches that workflow with project, branch, commit, and non-secret deploy
-inputs. A push to `main` deploys `prod`; manual workflow runs can deploy `dev` or
-`prod`.
+Managed repos inherit `.github/workflows/deploy.yml`. A push to `main` deploys
+`prod`; manual workflow runs pick `dev` or `prod`. The only field a human
+fills in is **Deployment environment** (`dev` or `prod`). The branch comes
+from GitHub's built-in "Use workflow from" dropdown above the form.
+
+There are three additional optional inputs (`projectId`, `branch`,
+`commitSha`) that the harness's `publish` MCP tool passes through for
+workspace-project correlation. Leave them blank when dispatching manually;
+the workflow body does not read them.
+
+Everything else, including cluster, ingress, image repos, public host/domain,
+ALB certificates, namespace, and TLS secrets, comes from
+GitHub organization, repository, or environment variables and secrets.
 
 Deployment uses standard Kubernetes resources through Helm:
 
@@ -108,21 +117,40 @@ Deployment uses standard Kubernetes resources through Helm:
 - the workflow creates the namespace idempotently before `helm upgrade --install`
 
 Secrets are not workflow dispatch inputs. For shared organization-level deployment,
-keep true shared credentials as GitHub organization secrets: `KUBE_CONFIG_DATA`,
-`GROUNDX_WORKSPACE_API_KEY`, and `MYSQL_PASSWORD`. For ECR, prefer GitHub OIDC with
+keep true shared credentials as GitHub organization secrets:
+`GROUNDX_PARTNER_API_KEY` and `MYSQL_PASSWORD`. For AWS, prefer GitHub OIDC with
 `AWS_ROLE_TO_ASSUME` as an organization variable; otherwise use
-`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` as organization secrets. Set
-`ECR_AWS_REGION` as an organization variable for ECR auth; ECR Public normally uses
-`us-east-1`.
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` as organization secrets.
+
+EKS targeting is per-environment. Set four variables (org, repo, or
+GitHub-environment scope works for all of them):
+
+| Variable | Used when `environment` is | Example |
+|---|---|---|
+| `EKS_CLUSTER_NAME_DEV` | `dev` | `eyelevel-dev` |
+| `EKS_CLUSTER_REGION_DEV` | `dev` | `us-east-1` |
+| `EKS_CLUSTER_NAME_PROD` | `prod` | `eyelevel-prod` |
+| `EKS_CLUSTER_REGION_PROD` | `prod` | `us-east-1` |
+
+The workflow picks the right pair based on the chosen environment, then
+generates the kubeconfig per job via `aws eks update-kubeconfig`; no static
+`KUBE_CONFIG_DATA` secret is used. The IAM principal behind `AWS_ROLE_TO_ASSUME`
+must have `eks:DescribeCluster` on the target cluster and be mapped in the
+cluster's `kube-system/aws-auth` ConfigMap or in an EKS access entry so the
+Kubernetes API authorizes it.
+
+ECR Public auth uses the same AWS credentials; the action internally forces
+`us-east-1` regardless of `EKS_CLUSTER_REGION`, so a non-us-east-1 EKS region
+does not break ECR Public push.
 
 Non-secret deploy settings are better as organization variables. The workflow supports
 the shared variables `FRONTEND_IMAGE_REPOSITORY`, `MIDDLEWARE_IMAGE_REPOSITORY`,
 `K8S_NAMESPACE`, `PUBLIC_ACCESS`, `PUBLIC_DOMAIN`, `INGRESS_CLASS_NAME`,
 `INGRESS_ANNOTATIONS_JSON`, `ACM_CERTIFICATE_ARN`, `ALB_GROUP_NAME`,
 `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, and `MYSQL_USER`. The deployment
-itself is standard Kubernetes: a kubeconfig in `KUBE_CONFIG_DATA`, `kubectl`,
-Helm, `Deployment`, `ClusterIP` `Service`, `Secret`, optional `NetworkPolicy`,
-and optional `networking.k8s.io/v1` `Ingress`.
+itself is standard Kubernetes: `kubectl`, Helm, `Deployment`, `ClusterIP`
+`Service`, `Secret`, optional `NetworkPolicy`, and optional
+`networking.k8s.io/v1` `Ingress`.
 
 For nginx, Traefik, HAProxy, Contour, cert-manager, or on-prem clusters, leave
 `ACM_CERTIFICATE_ARN` and `ALB_GROUP_NAME` unset, set `INGRESS_CLASS_NAME` to the
@@ -134,8 +162,7 @@ annotations. Example:
 For the shared AWS ALB path, set `PUBLIC_ACCESS=ingress`,
 `PUBLIC_DOMAIN=groundx.ai`, `INGRESS_CLASS_NAME=alb`, `ACM_CERTIFICATE_ARN` to
 the wildcard `*.groundx.ai` certificate ARN, and `ALB_GROUP_NAME` to a shared
-group such as `groundx-studio`. `AWS_REGION` may describe the EKS/RDS region, but
-ECR auth intentionally reads `ECR_AWS_REGION` to avoid mixing those concerns.
+group such as `groundx-studio`.
 
 `DEPLOY_RUNNER` can select a self-hosted GitHub Actions runner when a private
 EKS, private cloud, or on-prem Kubernetes API is not reachable from GitHub-hosted
@@ -145,9 +172,10 @@ runners. If it is unset, the workflow uses `ubuntu-latest`.
 Secrets, such as nginx. For AWS ALB with ACM, use `ACM_CERTIFICATE_ARN` instead.
 
 Per-app or per-environment LLM settings should be provisioned by the agent or scaffold
-deployment flow, not as shared org defaults. Use deploy-config to set `LLM_API_KEY` as
-a GitHub environment secret and `LLM_SERVICE`, `LLM_MODEL_ID`, and optional
-`LLM_BASE_URL` as environment variables.
+deployment flow, not as shared org defaults. Use deploy-config to set
+`LLM_API_KEY` as a GitHub environment secret and `LLM_SERVICE`, `LLM_MODEL_ID`,
+and optional `LLM_BASE_URL` as environment variables. Telemetry secrets such as
+`POSTHOG_API_KEY` and `SENTRY_DSN` can be configured there too when needed.
 
 The workflow preserves an existing Kubernetes `SESSION_SECRET` and generates one on
 first deploy when none is configured. Configure `SESSION_SECRET` explicitly only when
@@ -159,8 +187,9 @@ gets its own repo/environment-scoped Helm release. Setting one org-wide
 `MIDDLEWARE_SECRET_NAME` unset for the same reason; the workflow derives a
 release-scoped Kubernetes Secret name by default.
 
-When multiple scaffold repos publish to shared image repositories, the workflow pushes
-two tags per image. The deployed tag is immutable and includes the repo name, deploy
-environment, commit, and run attempt so Kubernetes rolls forward on every update. It
-also pushes a stable channel tag: repo name for `prod`, and repo name plus `-dev` for
-`dev`.
+Each deploy pushes one image tag per service: `<repo-name>` for `prod`,
+`<repo-name>-dev` for `dev`. The repo name carries the workspace's unique hash,
+so it identifies the project across deploys. The tag is reused on every push to
+that environment; `imagePullPolicy: Always` is what makes Kubernetes re-pull on
+each `helm upgrade`. Rollback by tag is not possible with this scheme; roll back
+by image digest, or re-run the workflow against an older commit.

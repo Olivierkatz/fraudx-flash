@@ -69,15 +69,17 @@ const workflow = read(".github/workflows/deploy.yml");
 assert(workflow.includes("branches:\n      - main"), "deploy workflow must run on merge/push to main");
 assert(workflow.includes("workflow_dispatch:"), "deploy workflow must support manual runs");
 assert(workflow.includes("type: choice") && workflow.includes("- dev") && workflow.includes("- prod"), "manual deploy environment must be dev|prod");
-assert(workflow.includes("default: inherit"), "manual publicAccess must inherit org configuration by default");
 assert(workflow.includes("runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}"), "deploy runner must be configurable for private/on-prem clusters");
 assert(workflow.includes('kubectl create namespace "$K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -'), "namespace creation must be idempotent");
 assert(workflow.includes("Dockerfile.frontend") && workflow.includes("Dockerfile.middleware"), "workflow must build both Docker images");
 assert(workflow.includes("lowercase()"), "workflow must define an image repository lowercase helper");
 assert(workflow.includes("slugify_tag()"), "workflow must define a Docker tag slug helper");
 assert(workflow.includes("slugify_k8s_name()"), "workflow must define a Kubernetes name slug helper");
-assert(workflow.includes("channel_tag=\"$repo_tag\""), "prod deploys must publish a stable repo-name channel tag");
-assert(workflow.includes('channel_tag="${repo_tag}-${DEPLOY_ENVIRONMENT}"'), "dev deploys must publish a stable repo-name-dev channel tag");
+assert(workflow.includes('image_tag="$repo_tag"'), "prod deploys must tag as <repo-name>");
+assert(workflow.includes('image_tag="${repo_tag}-${DEPLOY_ENVIRONMENT}"'), "non-prod deploys must tag as <repo-name>-<env>");
+assert(!/\bchannel_tag\b/.test(workflow), "old channel_tag/image_tag split must be gone — one tag per env");
+assert(!/short_sha|run_attempt/.test(workflow), "old per-commit immutable tag fragments must be gone");
+assert(!/IMAGE_TAG_INPUT|vars\.IMAGE_TAG|secrets\.IMAGE_TAG/.test(workflow), "image tag overrides must be gone — deploy uses one computed stable tag per env");
 assert(workflow.includes('namespace="${K8S_NAMESPACE_INPUT:-${repo_k8s_name}-${DEPLOY_ENVIRONMENT}}"'), "default namespace must be repo/environment scoped");
 assert(workflow.includes('release_name="$(slugify_k8s_name "${HELM_RELEASE_NAME_INPUT:-${repo_k8s_name}-${DEPLOY_ENVIRONMENT}}")"'), "default Helm release name must be repo/environment scoped");
 assert(workflow.includes('middleware_secret_name="$(slugify_k8s_name "${MIDDLEWARE_SECRET_NAME_INPUT:-${release_name}-middleware}")"'), "default middleware secret name must be release scoped");
@@ -107,13 +109,58 @@ assert(workflow.includes("vars.INGRESS_ANNOTATIONS_JSON"), "workflow must allow 
 assert(workflow.includes("MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}"), "workflow must source MYSQL_PASSWORD from GitHub secrets");
 assert(workflow.includes("aws-actions/amazon-ecr-login@v2"), "workflow must support Amazon ECR Public login");
 assert(workflow.includes("registry-type: public"), "workflow must use public ECR registry mode");
-assert(workflow.includes("ECR_AWS_REGION:"), "workflow must use the ECR-specific AWS region setting");
-assert(workflow.includes("aws-region: ${{ env.ECR_AWS_REGION }}"), "ECR auth must use ECR_AWS_REGION");
-assert(!/^\s+AWS_REGION:/m.test(workflow), "workflow must not use ambiguous AWS_REGION for ECR auth");
+// Unified AWS_REGION drives both EKS and ECR; the ECR Public auth flow
+// inside aws-actions/amazon-ecr-login@v2 forces us-east-1 internally,
+// so we no longer need a separate ECR_AWS_REGION env var.
+// EKS targeting is per-environment. The workflow exposes
+// EKS_CLUSTER_REGION_DEV / EKS_CLUSTER_REGION_PROD and
+// EKS_CLUSTER_NAME_DEV / EKS_CLUSTER_NAME_PROD as org/repo/env vars,
+// then resolves each pair into a single EKS_CLUSTER_REGION /
+// EKS_CLUSTER_NAME at job-env time based on the chosen environment.
+assert(/EKS_CLUSTER_REGION_DEV/.test(workflow), "workflow must source dev region from EKS_CLUSTER_REGION_DEV");
+assert(/EKS_CLUSTER_REGION_PROD/.test(workflow), "workflow must source prod region from EKS_CLUSTER_REGION_PROD");
+assert(/EKS_CLUSTER_NAME_DEV/.test(workflow), "workflow must source dev cluster from EKS_CLUSTER_NAME_DEV");
+assert(/EKS_CLUSTER_NAME_PROD/.test(workflow), "workflow must source prod cluster from EKS_CLUSTER_NAME_PROD");
+assert(/^\s+EKS_CLUSTER_REGION:/m.test(workflow), "workflow must compute a resolved EKS_CLUSTER_REGION env var");
+assert(/^\s+EKS_CLUSTER_NAME:/m.test(workflow), "workflow must compute a resolved EKS_CLUSTER_NAME env var");
+assert(!/^\s+AWS_REGION:/m.test(workflow), "workflow must not define a single AWS_REGION — EKS_CLUSTER_REGION is per-env");
+assert(!/ECR_AWS_REGION/.test(workflow), "ECR_AWS_REGION must be gone — EKS_CLUSTER_REGION covers EKS, ECR Public auth forces us-east-1 internally");
+// EKS kubeconfig is generated dynamically per job. We no longer ship a
+// static kubeconfig as KUBE_CONFIG_DATA.
+assert(workflow.includes("aws eks update-kubeconfig"), "workflow must generate the kubeconfig from EKS dynamically");
+assert(!/KUBE_CONFIG_DATA/.test(workflow), "KUBE_CONFIG_DATA must not appear — dynamic kubeconfig replaces the static secret");
 assert(workflow.includes("kubectl -n \"$K8S_NAMESPACE\" get secret \"$MIDDLEWARE_SECRET_NAME\" -o jsonpath='{.data.SESSION_SECRET}'"), "workflow must preserve existing SESSION_SECRET");
 assert(workflow.includes("openssl rand -base64 48"), "workflow must generate SESSION_SECRET on first deploy");
-assert(workflow.includes("${{ steps.deploy-vars.outputs.frontend_repo }}:${{ steps.deploy-vars.outputs.channel_tag }}"), "frontend build must push the channel tag");
-assert(workflow.includes("${{ steps.deploy-vars.outputs.middleware_repo }}:${{ steps.deploy-vars.outputs.channel_tag }}"), "middleware build must push the channel tag");
+assert(workflow.includes("${{ steps.deploy-vars.outputs.frontend_repo }}:${{ steps.deploy-vars.outputs.image_tag }}"), "frontend build must push the per-env image tag");
+assert(workflow.includes("${{ steps.deploy-vars.outputs.middleware_repo }}:${{ steps.deploy-vars.outputs.image_tag }}"), "middleware build must push the per-env image tag");
+
+// With a stable per-env tag (instead of per-commit immutable), k8s won't
+// know to re-pull unless pullPolicy is Always. Pin it in values.yaml.
+const valuesYaml = read("deploy/helm/groundx-web-ui/values.yaml");
+assert(/pullPolicy:\s*Always/.test(valuesYaml), "frontend/middleware pullPolicy must be Always so a same-tag re-push gets pulled");
+assert(!/pullPolicy:\s*IfNotPresent/.test(valuesYaml), "no image may use IfNotPresent — stable per-env tag requires Always");
+
+for (const key of [
+  "LOG_LEVEL",
+  "GROUNDX_SAMPLES_BUCKET_ID",
+  "BYO_PAGES_LIMIT",
+  "RATE_LIMIT_AUTH_PER_MIN",
+  "RATE_LIMIT_API_PER_MIN",
+  "RATE_LIMIT_LLM_PER_MIN",
+  "METRICS_ENABLED",
+  "OTEL_EXPORTER_OTLP_ENDPOINT",
+  "OTEL_SERVICE_NAME",
+  "POSTHOG_HOST",
+  "SSO_ENABLED",
+  "DISABLE_AGENT_TURN_LOG",
+]) {
+  assert(workflow.includes(`append_optional_env '${key}'`), `workflow must forward optional v2 middleware variable ${key}`);
+}
+
+for (const key of ["POSTHOG_API_KEY", "SENTRY_DSN"]) {
+  assert(workflow.includes(`${key}: \${{ secrets.${key} }}`), `workflow must source ${key} from GitHub environment secrets`);
+  assert(workflow.includes(`append_optional_env '${key}'`), `workflow must forward optional v2 middleware secret ${key}`);
+}
 
 const dispatchInputs = workflow.match(/workflow_dispatch:\n    inputs:\n(?<body>[\s\S]*?)\n\npermissions:/)?.groups?.body ?? "";
 const dispatchInputNames = [...dispatchInputs.matchAll(/^ {6}([A-Za-z0-9_]+):/gm)].map((match) => match[1]);
@@ -122,6 +169,53 @@ const forbiddenInputNames = dispatchInputNames.filter((name) => {
   return /(password|token|credential|kube|config)/i.test(name);
 });
 assert(forbiddenInputNames.length === 0, `workflow_dispatch inputs must not accept secret values: ${forbiddenInputNames.join(", ")}`);
+
+// The manual-run form must stay short. Cluster/Ingress/image-repo overrides
+// belong in org variables and secrets, not on every dispatch. Only the
+// genuinely per-run choices live here.
+// `environment` is the one input a human operator cares about. The
+// other three are harness-plumbing passthroughs: the `publish` MCP tool
+// always passes them, so the workflow has to accept them, but the
+// workflow body ignores them. They show up at the bottom of the manual
+// dispatch form — leave blank when running manually; GitHub uses the
+// "Use workflow from" picker for the ref.
+const allowedDispatchInputs = new Set([
+  "environment", // dev | prod  (only field humans fill in)
+  "projectId",   // harness passthrough — workspace project id
+  "branch",      // harness passthrough — workspace runner ref
+  "commitSha",   // harness passthrough — workspace runner commit
+]);
+const actualDispatchInputs = new Set(dispatchInputNames);
+const unexpectedInputs = [...actualDispatchInputs].filter((n) => !allowedDispatchInputs.has(n));
+const missingInputs = [...allowedDispatchInputs].filter((n) => !actualDispatchInputs.has(n));
+assert(
+  unexpectedInputs.length === 0 && missingInputs.length === 0,
+  `workflow_dispatch input set drifted — unexpected: [${unexpectedInputs.join(", ")}], missing: [${missingInputs.join(", ")}]`,
+);
+
+// Ops-side helper workflows for log inspection and teardown. They share
+// the same per-env EKS targeting pattern as deploy.yml so an operator
+// can run them from the Actions tab without needing a local kubeconfig.
+for (const name of ["diagnose", "uninstall"]) {
+  const path = `.github/workflows/${name}.yml`;
+  const wf = read(path);
+  assert(wf.includes("workflow_dispatch:"), `${name} must be manually triggerable`);
+  assert(/EKS_CLUSTER_NAME_DEV/.test(wf), `${name} must source dev cluster from EKS_CLUSTER_NAME_DEV`);
+  assert(/EKS_CLUSTER_NAME_PROD/.test(wf), `${name} must source prod cluster from EKS_CLUSTER_NAME_PROD`);
+  assert(wf.includes("aws eks update-kubeconfig"), `${name} must generate kubeconfig dynamically`);
+}
+const diagnoseWf = read(".github/workflows/diagnose.yml");
+assert(diagnoseWf.includes("kubectl logs"), "diagnose must tail pod logs");
+assert(diagnoseWf.includes("kubectl describe"), "diagnose must describe pods");
+assert(diagnoseWf.includes("helm status"), "diagnose must report helm status");
+assert(diagnoseWf.includes("helm history"), "diagnose must report helm history");
+assert(/podSelector:[\s\S]*?required:\s*false/.test(diagnoseWf), "diagnose podSelector must be optional so helm-status can run without pod lookup");
+assert(diagnoseWf.includes("No podSelector supplied; skipping pod-specific diagnostics."), "diagnose must skip pod-specific diagnostics when no podSelector is supplied");
+assert(/--previous/.test(diagnoseWf), "diagnose must also pull previous-container logs (for crash loops)");
+const uninstallWf = read(".github/workflows/uninstall.yml");
+assert(uninstallWf.includes("helm uninstall"), "uninstall must run helm uninstall");
+assert(/inputs\.confirm/.test(uninstallWf), "uninstall must require explicit confirmation input");
+assert(/deleteNamespace/.test(uninstallWf), "uninstall must offer optional namespace deletion");
 
 if (commandExists("helm")) {
   execFileSync("helm", ["lint", "deploy/helm/groundx-web-ui"], { cwd: root, stdio: "inherit" });
