@@ -4,6 +4,10 @@ This is the canonical runnable scaffold for GroundX Studio web UI projects. Mana
 workspace projects are initialized from this repository, then agents clone the managed
 repo, edit locally, commit, push, and publish.
 
+Agents should start with [`AGENTS.md`](./AGENTS.md). It is the scaffold's table of
+contents for operating rules, backlog discipline, testing, deploy, MCP tooling, and
+common traps.
+
 ## Quick Start
 
 ```bash
