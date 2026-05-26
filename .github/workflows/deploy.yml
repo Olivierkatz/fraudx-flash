@@ -44,6 +44,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: ${{ github.event_name != 'push' || github.repository != 'GroundX-Studio/groundx-web-ui-scaffold' }}
     name: Deploy ${{ github.event_name == 'push' && 'prod' || inputs.environment || 'dev' }}
     runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
     environment:

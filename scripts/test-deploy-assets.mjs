@@ -68,6 +68,10 @@ assert(ingress.includes("alb.ingress.kubernetes.io/target-type"), "Ingress must 
 const workflow = read(".github/workflows/deploy.yml");
 assert(workflow.includes("branches:\n      - main"), "deploy workflow must run on merge/push to main");
 assert(workflow.includes("workflow_dispatch:"), "deploy workflow must support manual runs");
+assert(
+  workflow.includes("github.event_name != 'push' || github.repository != 'GroundX-Studio/groundx-web-ui-scaffold'"),
+  "canonical scaffold repo must skip automatic push deploys without disabling manual or cloned-project deploys",
+);
 assert(workflow.includes("type: choice") && workflow.includes("- dev") && workflow.includes("- prod"), "manual deploy environment must be dev|prod");
 assert(workflow.includes("runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}"), "deploy runner must be configurable for private/on-prem clusters");
 assert(workflow.includes('kubectl create namespace "$K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -'), "namespace creation must be idempotent");
