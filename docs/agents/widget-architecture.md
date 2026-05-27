@@ -29,7 +29,8 @@ Every real widget directory under `chat-widgets/` or `viewer-widgets/` must have
 
 - a README describing slot, data source, public props, and tests
 - a sibling test for the primary user-visible behavior
-- a `mode` prop or README rationale when onboarding/demo and steady-state modes differ
+- a `## Mode Contract` README section with a typed `mode` prop or explicit
+  `No mode contract required` rationale
 - API/context/middleware tests when the widget owns network, provider, or persistence behavior
 
 Onboarding and demo states should decorate production widgets through props or

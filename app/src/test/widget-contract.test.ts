@@ -29,6 +29,11 @@ function walk(dir: string, files: string[] = []): string[] {
   return files;
 }
 
+function sectionBody(text: string, heading: string): string {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.match(new RegExp(`^## ${escaped}\\n([\\s\\S]*?)(?=^## |\\z)`, "m"))?.[1] ?? "";
+}
+
 describe("widget slot contract", () => {
   it("keeps chat and viewer widget slots documented", () => {
     for (const slotDir of WIDGET_SLOTS) {
@@ -47,14 +52,19 @@ describe("widget slot contract", () => {
       const files = walk(widgetDir);
       const componentFiles = files.filter((file) => file.endsWith(".tsx") && !file.endsWith(".test.tsx"));
       const testFiles = files.filter((file) => file.endsWith(".test.tsx"));
-      const readableContract = [join(widgetDir, "README.md"), ...componentFiles]
+      const readmeText = readFileSync(join(widgetDir, "README.md"), "utf8");
+      const componentText = componentFiles
         .filter((file) => existsSync(file) && statSync(file).isFile())
         .map((file) => readFileSync(file, "utf8"))
         .join("\n");
+      const modeContract = sectionBody(readmeText, "Mode Contract");
+      const hasModeProp = /\bmode\??\s*:/.test(componentText);
+      const hasNoModeRationale = /\b(no mode contract required|mode contract is not required)\b/i.test(modeContract);
 
       expect(componentFiles.length, `${relativeWidget} needs a widget component`).toBeGreaterThan(0);
       expect(testFiles.length, `${relativeWidget} needs a sibling test`).toBeGreaterThan(0);
-      expect(readableContract, `${relativeWidget} needs a mode prop or README rationale`).toMatch(/\bmode\b/);
+      expect(modeContract, `${relativeWidget} needs a README ## Mode Contract section`).not.toBe("");
+      expect(hasModeProp || hasNoModeRationale, `${relativeWidget} needs a typed mode prop or explicit no-mode rationale`).toBe(true);
     }
   });
 });

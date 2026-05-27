@@ -1,9 +1,15 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 
 import { createApp } from "./app.js";
 import { MemoryAppRepository } from "./db/memoryRepository.js";
 import { FakeGroundXClient, FakeLlmClient, FakePartnerClient, testEnv } from "./test/fakes.js";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 const APP_OWNED_PERSISTENCE_CONTRACTS = [
   {
@@ -22,6 +28,8 @@ const APP_OWNED_PERSISTENCE_CONTRACTS = [
   },
 ] as const;
 
+const METADATA_IDENTITY_FIELDS = ["groundxUsername"] as const;
+const PUBLIC_METADATA_WRITE_FIELDS = ["onboardingState"] as const;
 const RESERVED_METADATA_FIELDS = [
   "uiPreferencesJson",
   "featureFlagsJson",
@@ -42,6 +50,20 @@ function setup() {
   return { app, repository };
 }
 
+function appUserMetadataFieldsFromType(): string[] {
+  const text = readFileSync(join(HERE, "types.ts"), "utf8");
+  const match = text.match(/export interface AppUserMetadata \{([\s\S]*?)\n\}/);
+  if (!match) throw new Error("AppUserMetadata interface not found");
+  return [...match[1].matchAll(/^\s*([A-Za-z][A-Za-z0-9]*)\??:/gm)].map((field) => field[1]).sort();
+}
+
+function allowedMetadataPatchFieldsFromRoute(): string[] {
+  const text = readFileSync(join(HERE, "app.ts"), "utf8");
+  const match = text.match(/allowedFields\s*=\s*new Set\(\[([^\]]*)\]\)/);
+  if (!match) throw new Error("metadata allowedFields set not found");
+  return [...match[1].matchAll(/"([^"]+)"/g)].map((field) => field[1]).sort();
+}
+
 describe("app-owned persistence round-trip contract", () => {
   it("documents every active app-owned persistence contract", () => {
     for (const contract of APP_OWNED_PERSISTENCE_CONTRACTS) {
@@ -52,14 +74,18 @@ describe("app-owned persistence round-trip contract", () => {
     }
   });
 
-  it("keeps reserved metadata fields explicit until a public write path exists", () => {
-    expect(RESERVED_METADATA_FIELDS).toEqual([
-      "uiPreferencesJson",
-      "featureFlagsJson",
-      "lastActiveProjectId",
-      "acceptedTermsAt",
-      "appRole",
-    ]);
+  it("classifies every metadata field as identity, public-write, or reserved", () => {
+    const classifiedFields = [
+      ...METADATA_IDENTITY_FIELDS,
+      ...PUBLIC_METADATA_WRITE_FIELDS,
+      ...RESERVED_METADATA_FIELDS,
+    ].sort();
+
+    expect(appUserMetadataFieldsFromType()).toEqual(classifiedFields);
+  });
+
+  it("keeps public metadata writes limited to fields with a round-trip closure path", () => {
+    expect(allowedMetadataPatchFieldsFromRoute()).toEqual([...PUBLIC_METADATA_WRITE_FIELDS].sort());
   });
 
   it("round-trips onboarding metadata through public write and read paths", async () => {

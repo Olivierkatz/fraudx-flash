@@ -6,12 +6,15 @@ import { describe, expect, it } from "vitest";
 const SRC_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SCAN_ROOTS = [join(SRC_ROOT, "shared/components"), join(SRC_ROOT, "views")];
 
-const EXEMPT_OFFENDER_COUNTS: Record<string, number> = {
-  "views/Auth/AuthLayout.tsx": 1,
-  "views/Banned/Banned.tsx": 1,
-  "views/CoreLayouts/Dashboard.tsx": 3,
-  "views/Home/Home.tsx": 2,
-};
+const EXEMPT_OFFENDER_IDS = new Set([
+  'views/Auth/AuthLayout.tsx:viewport height literal:minHeight: "100vh",',
+  'views/Banned/Banned.tsx:viewport height literal:<Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", backgroundColor: MAIN_BACKGROUND, p: 3 }}>',
+  "views/CoreLayouts/Dashboard.tsx:numeric borderRadius:borderRadius: 1,",
+  'views/CoreLayouts/Dashboard.tsx:viewport height literal:<Box sx={{ display: "flex", minHeight: "100vh", backgroundColor: MAIN_BACKGROUND }}>',
+  "views/CoreLayouts/Dashboard.tsx:numeric fontSize:fontSize: 30,",
+  "views/Home/Home.tsx:numeric fontSize:fontSize: 28,",
+  "views/Home/Home.tsx:numeric fontWeight:sx={{ backgroundColor: GREEN, color: NAVY, fontWeight: 700 }}",
+]);
 
 const STYLE_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
   { name: "hex color", pattern: /#[0-9a-fA-F]{3,8}\b/g },
@@ -21,43 +24,66 @@ const STYLE_PATTERNS: Array<{ name: string; pattern: RegExp }> = [
   { name: "viewport height literal", pattern: /\b(?:minHeight|maxHeight)\s*:\s*["']\d+(?:vh|vw|px)["']/g },
 ];
 
-function walkTsx(dir: string, files: string[] = []): string[] {
+interface StyleOffender {
+  id: string;
+  file: string;
+  kind: string;
+  line: string;
+}
+
+function walkSource(dir: string, files: string[] = []): string[] {
   if (!existsSync(dir)) return files;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith(".")) continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      walkTsx(full, files);
-    } else if (entry.name.endsWith(".tsx") && !entry.name.endsWith(".test.tsx")) {
+      walkSource(full, files);
+    } else if (/\.(ts|tsx)$/.test(entry.name) && !entry.name.includes(".test.")) {
       files.push(full);
     }
   }
   return files;
 }
 
-function countOffenders(text: string): number {
-  return STYLE_PATTERNS.reduce((count, { pattern }) => count + [...text.matchAll(pattern)].length, 0);
+function collectOffenders(file: string): StyleOffender[] {
+  const relativePath = relative(SRC_ROOT, file);
+  const lines = readFileSync(file, "utf8").split(/\r?\n/);
+  const offenders: StyleOffender[] = [];
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    for (const { name, pattern } of STYLE_PATTERNS) {
+      pattern.lastIndex = 0;
+      if (!pattern.test(line)) continue;
+      offenders.push({
+        file: relativePath,
+        kind: name,
+        line: trimmedLine,
+        id: `${relativePath}:${name}:${trimmedLine}`,
+      });
+    }
+  }
+
+  return offenders;
 }
 
 describe("hardcoded style drift guard", () => {
   it("keeps raw style literals on an explicit shrinking allowlist", () => {
-    const actualCounts = new Map<string, number>();
+    const offenders = SCAN_ROOTS.flatMap((root) => walkSource(root)).flatMap(collectOffenders);
+    const offenderIds = new Set(offenders.map((offender) => offender.id));
 
-    for (const file of SCAN_ROOTS.flatMap((root) => walkTsx(root))) {
-      const relativePath = relative(SRC_ROOT, file);
-      const offenderCount = countOffenders(readFileSync(file, "utf8"));
-      if (offenderCount > 0) actualCounts.set(relativePath, offenderCount);
-    }
-
-    for (const [relativePath, offenderCount] of actualCounts) {
+    for (const offender of offenders) {
       expect(
-        EXEMPT_OFFENDER_COUNTS[relativePath],
-        `${relativePath} has ${offenderCount} hardcoded style literal(s); use tokens or add a justified shrinking exemption`,
-      ).toBe(offenderCount);
+        EXEMPT_OFFENDER_IDS.has(offender.id),
+        `${offender.file} has a hardcoded ${offender.kind}; use tokens or add a justified shrinking exemption: ${offender.line}`,
+      ).toBe(true);
     }
 
-    for (const [relativePath, expectedCount] of Object.entries(EXEMPT_OFFENDER_COUNTS)) {
-      expect(actualCounts.get(relativePath) ?? 0, `${relativePath} exemption count should shrink when literals are removed`).toBe(expectedCount);
+    for (const exemptId of EXEMPT_OFFENDER_IDS) {
+      expect(
+        offenderIds.has(exemptId),
+        `style exemption should be removed after the literal is cleaned up: ${exemptId}`,
+      ).toBe(true);
     }
   });
 });
