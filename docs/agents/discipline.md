@@ -19,6 +19,11 @@ Examples:
 If the implementation behind a route, dispatcher, context, or component is a
 stub or a frank "not wired" response, the item stays `in-progress`.
 
+Persisted state has an additional closure gate. Read `round-trip.md` before
+closing anything that writes app-owned data. If the work has a table, repository
+method, route, context field, or widget seam but lacks a public read/write proof,
+mark it `seam-only`, not `closed`.
+
 ## Single Backlog
 
 Pending work lives in `docs/agents/backlog.md`. Do not create extra tracking

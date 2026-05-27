@@ -26,6 +26,11 @@ project operations.
 | `commit_push` | Commit and push local changes with managed credentials |
 | `publish` | Dispatch deployment |
 
+Older audit notes may ask for `cluster_logs` or `cluster_state`. In this
+scaffold, those map to the existing read-only diagnostic tools:
+`workflow_run_logs`, `pod_logs`, `pod_describe`, and `helm_release_status`.
+Do not add alias tools unless the MCP surface itself changes.
+
 ## Metadata Boundaries
 
 OAuth connector metadata belongs in plugin app metadata, not in scaffold app

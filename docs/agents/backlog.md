@@ -17,8 +17,12 @@ Single source of truth for pending scaffold or project work.
 | --- | --- |
 | `not-started` | Design known, no code or docs started |
 | `in-progress` | Some code/docs/tests exist, but closure test does not pass yet |
+| `seam-only` | Plumbing, storage, route, context, or widget seam exists, but public write/read behavior is not verified |
 | `blocked` | Waiting on external decision, access, data, or infrastructure |
 | `closed` | User-visible closure test passes and inline TODOs are gone |
+
+`seam-only` is not closed. Move it to `closed` only after the round-trip checks in
+`round-trip.md` pass and the closure test is named in this backlog.
 
 ## ID Convention
 

@@ -25,3 +25,8 @@ for route, auth, shell, viewport, or overflow behavior.
 
 For middleware changes, prefer Supertest against the Express app with seeded
 repository state and fake upstream clients.
+
+For persisted app-owned state, closure requires a round trip: a public write
+path, durable storage, a separate public read or hydrate path, and a user-visible
+assertion. Use `round-trip.md` and keep `persistenceRoundTripContract.test.ts`
+green when extending repositories or metadata.

@@ -36,5 +36,9 @@ diagnostics through MCP or the Workspace facade to read workflow status/logs,
 dispatch pod logs/describes, check Helm status, or uninstall a managed
 environment.
 
+For on-prem or air-gapped readiness, start with
+[`airgap-audit.md`](airgap-audit.md) and inventory every production runtime host
+before claiming the deploy can run without public egress.
+
 Do not claim a hosted URL is ready until public access is configured and the
 agent verifies that the URL responds.
