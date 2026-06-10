@@ -33,8 +33,9 @@ publish.
 
 The scaffold ships `diagnose.yml` and `uninstall.yml`. Use Workspace
 diagnostics through MCP or the Workspace facade to read workflow status/logs,
-dispatch pod logs/describes, check Helm status, or uninstall a managed
-environment.
+dispatch pod logs/describes, and check Helm status. Use `deployment_teardown`
+to remove a managed deployment without deleting the project/repo; reserve
+`helm_uninstall` / `uninstall.yml` for lower-level fallback removal.
 
 For on-prem or air-gapped readiness, start with
 [`airgap-audit.md`](airgap-audit.md) and inventory every production runtime host

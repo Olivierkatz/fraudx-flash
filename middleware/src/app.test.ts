@@ -53,6 +53,28 @@ describe("middleware scaffold", () => {
     await request(app).get("/api/healthz").expect(200, { status: "ok" });
   });
 
+  it("serves deployment provenance on health when provided", async () => {
+    const { app } = setup({
+      ...testEnv,
+      GROUNDX_DEPLOY_COMMIT_SHA: "abc123",
+      GROUNDX_DEPLOY_ENVIRONMENT: "dev",
+      GROUNDX_DEPLOY_IMAGE_TAG: "project-dev",
+      GROUNDX_DEPLOY_NAMESPACE: "project-dev",
+      GROUNDX_DEPLOY_PUBLIC_HOST: "workspace-project-dev.groundx.ai",
+      GROUNDX_DEPLOY_RELEASE_NAME: "project-dev",
+    });
+
+    await request(app).get("/api/healthz").expect(200, {
+      status: "ok",
+      commitSha: "abc123",
+      environment: "dev",
+      imageTag: "project-dev",
+      namespace: "project-dev",
+      publicHost: "workspace-project-dev.groundx.ai",
+      releaseName: "project-dev",
+    });
+  });
+
   it("registers through GroundX Partner API and stores only session plus app metadata", async () => {
     const { app, repository, partnerClient } = setup();
 

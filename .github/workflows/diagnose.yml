@@ -1,14 +1,22 @@
 name: Diagnose
 
-# Manual ops workflow. Pulls `kubectl describe` + `kubectl logs` (including
-# previous-container logs for crash loops) for a pod or label selector in
-# the chosen environment. Output lands in the GitHub Actions run log, so
-# anyone with `gh run view` access — or an MCP-driven agent — can read it
-# without needing a local kubeconfig.
+# Manual ops workflow. Pulls Helm release status or `kubectl describe` +
+# `kubectl logs` (including previous-container logs for crash loops) in the
+# chosen environment. Output lands in the GitHub Actions run log, so anyone
+# with `gh run view` access — or an MCP-driven agent — can read it without
+# needing a local kubeconfig.
 
 on:
   workflow_dispatch:
     inputs:
+      diagnosticsAction:
+        description: Diagnostic action to run
+        required: false
+        default: pod-diagnose
+        type: choice
+        options:
+          - pod-diagnose
+          - helm-status
       environment:
         description: Cluster environment to inspect
         required: true

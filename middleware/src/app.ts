@@ -75,6 +75,22 @@ function customerModeSession(env: AppEnv): RequestHandler {
   };
 }
 
+function healthPayload(env: AppEnv): Record<string, string> {
+  const payload: Record<string, string> = { status: "ok" };
+  const deploymentFields: Array<[string, string | undefined]> = [
+    ["commitSha", env.GROUNDX_DEPLOY_COMMIT_SHA],
+    ["imageTag", env.GROUNDX_DEPLOY_IMAGE_TAG],
+    ["environment", env.GROUNDX_DEPLOY_ENVIRONMENT],
+    ["namespace", env.GROUNDX_DEPLOY_NAMESPACE],
+    ["publicHost", env.GROUNDX_DEPLOY_PUBLIC_HOST],
+    ["releaseName", env.GROUNDX_DEPLOY_RELEASE_NAME],
+  ];
+  for (const [key, value] of deploymentFields) {
+    if (value) payload[key] = value;
+  }
+  return payload;
+}
+
 export interface AppDependencies {
   env: AppEnv;
   repository: AppRepository;
@@ -93,7 +109,7 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
   app.use(cookieParser());
   app.use(sessionMiddleware(env, repository));
 
-  app.get("/api/healthz", (_req, res) => res.json({ status: "ok" }));
+  app.get("/api/healthz", (_req, res) => res.json(healthPayload(env)));
   const requireRuntimeSession = env.APP_AUTH_MODE === "customer" ? customerModeSession(env) : requireSession;
 
   if (env.APP_AUTH_MODE === "partner") {

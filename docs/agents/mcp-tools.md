@@ -11,12 +11,18 @@ project operations.
 | `operation_wait` | Poll a long-running workspace operation |
 | `deploy_config` | Set deploy variables and secrets |
 | `deploy_config_from_local` | Load deploy secrets from ignored local env files |
+| `deployment_status` | Read managed deployment status and evidence |
+| `deployment_public_health` | Probe public URL health and freshness metadata |
+| `deployment_diagnostics` | Queue structured deployment diagnostics |
+| `deployment_retry` | Retry the latest managed deployment |
+| `deployment_repair` | Queue allowlisted deployment repair |
+| `deployment_teardown` | Tear down a managed deployment without deleting the project/repo |
 | `workflow_run_status` | Read deploy/diagnose/uninstall workflow status |
 | `workflow_run_logs` | Read workflow logs |
 | `pod_logs` | Dispatch `diagnose.yml` for Kubernetes pod logs |
 | `pod_describe` | Dispatch `diagnose.yml` for Kubernetes pod describes |
 | `helm_release_status` | Dispatch `diagnose.yml` for Helm status |
-| `helm_uninstall` | Dispatch `uninstall.yml` for Helm teardown |
+| `helm_uninstall` | Dispatch `uninstall.yml` for lower-level Helm teardown fallback |
 | `git_session` | Request short-lived repo-scoped git credentials |
 | `clone_project` | Clone the managed repo locally |
 | `setup_env` | Generate ignored scaffold env files for local preview |
