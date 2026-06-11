@@ -168,7 +168,7 @@ For the shared AWS ALB path, set `PUBLIC_ACCESS=ingress`,
 the wildcard `*.groundx.ai` certificate ARN, and `ALB_GROUP_NAME` to a shared
 group such as `groundx-studio`.
 
-Set `PUBLIC_HOSTS=dev.studio.groundx.ai` in the dev environment and
+Set `PUBLIC_HOSTS=devstudio.groundx.ai` in the dev environment and
 `PUBLIC_HOSTS=studio.groundx.ai` in prod when the generated workspace hostname
 should remain live alongside the branded alias.
 
