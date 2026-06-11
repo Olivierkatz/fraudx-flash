@@ -104,7 +104,7 @@ workspace-project correlation. Leave them blank when dispatching manually;
 the workflow body does not read them.
 
 Everything else, including cluster, ingress, image repos, public host/domain,
-ALB certificates, namespace, and TLS secrets, comes from
+public host aliases, ALB certificates, namespace, and TLS secrets, comes from
 GitHub organization, repository, or environment variables and secrets.
 
 Deployment uses standard Kubernetes resources through Helm:
@@ -117,7 +117,7 @@ Deployment uses standard Kubernetes resources through Helm:
 - frontend Ingress is optional with `publicAccess=ingress`; when `PUBLIC_DOMAIN`
   is set and `PUBLIC_HOST` is not, hosts are derived as
   `<repo-name>.PUBLIC_DOMAIN` for `prod` and `<repo-name>-dev.PUBLIC_DOMAIN`
-  for `dev`
+  for `dev`; `PUBLIC_HOSTS` may add comma- or whitespace-separated aliases
 - the workflow creates the namespace idempotently before `helm upgrade --install`
 
 Secrets are not workflow dispatch inputs. For shared organization-level deployment,
@@ -150,7 +150,7 @@ does not break ECR Public push.
 Non-secret deploy settings are better as organization variables. The workflow supports
 the shared variables `FRONTEND_IMAGE_REPOSITORY`, `MIDDLEWARE_IMAGE_REPOSITORY`,
 `K8S_NAMESPACE`, `PUBLIC_ACCESS`, `PUBLIC_DOMAIN`, `INGRESS_CLASS_NAME`,
-`INGRESS_ANNOTATIONS_JSON`, `ACM_CERTIFICATE_ARN`, `ALB_GROUP_NAME`,
+`PUBLIC_HOSTS`, `INGRESS_ANNOTATIONS_JSON`, `ACM_CERTIFICATE_ARN`, `ALB_GROUP_NAME`,
 `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, and `MYSQL_USER`. The deployment
 itself is standard Kubernetes: `kubectl`, Helm, `Deployment`, `ClusterIP`
 `Service`, `Secret`, optional `NetworkPolicy`, and optional
@@ -167,6 +167,10 @@ For the shared AWS ALB path, set `PUBLIC_ACCESS=ingress`,
 `PUBLIC_DOMAIN=groundx.ai`, `INGRESS_CLASS_NAME=alb`, `ACM_CERTIFICATE_ARN` to
 the wildcard `*.groundx.ai` certificate ARN, and `ALB_GROUP_NAME` to a shared
 group such as `groundx-studio`.
+
+Set `PUBLIC_HOSTS=dev.studio.groundx.ai` in the dev environment and
+`PUBLIC_HOSTS=studio.groundx.ai` in prod when the generated workspace hostname
+should remain live alongside the branded alias.
 
 `DEPLOY_RUNNER` can select a self-hosted GitHub Actions runner when a private
 EKS, private cloud, or on-prem Kubernetes API is not reachable from GitHub-hosted
