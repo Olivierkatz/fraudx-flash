@@ -13,6 +13,7 @@ common traps.
 ```bash
 npm install
 WORKSPACE_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env
+npm run typecheck
 npm run dev
 npm run verify:preview
 ```
@@ -61,15 +62,21 @@ feature needs a real local database.
 
 ```bash
 npm run dev       # hot-reload frontend + middleware
+npm run typecheck # typecheck frontend and middleware
 npm run build     # build frontend and middleware
 npm test          # run frontend and middleware unit tests
 npm run test:e2e  # run frontend Playwright smoke tests
 npm run smoke:dev # verify memory-mode frontend, middleware, /api proxy, mocks, and LLM boot locally
 npm run verify:preview # canonical agent preview proof; currently aliases smoke:dev
+npm run verify    # run typecheck/tests plus preview verification
 ```
 
 `npm run smoke:dev` and `npm run verify:preview` use a 30-second boot budget by default.
 Override with `SMOKE_TIMEOUT_MS=...` when running in an unusually cold environment.
+Unit tests do not load local `.env` files by default. Use `LOAD_DOTENV_IN_TEST=1`
+for explicit live/integration tests that need ignored local env values; set
+`DOTENV_CONFIG_PATH=/absolute/path/to/.env.local` when the file is outside the
+middleware process working directory.
 
 ## Production Configuration
 

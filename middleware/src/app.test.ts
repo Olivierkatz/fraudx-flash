@@ -1,4 +1,7 @@
 import request from "supertest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createApp } from "./app.js";
@@ -46,6 +49,21 @@ describe("middleware scaffold", () => {
     expect(() => loadEnv({ ...testEnv, NODE_ENV: "production", LLM_MODEL_ID: undefined } as any)).toThrow(
       /LLM_MODEL_ID/,
     );
+  });
+
+  it("loads local dotenv during tests only when explicitly enabled", () => {
+    const tempDir = mkdtempSync(resolve(tmpdir(), "groundx-scaffold-env-test-"));
+    const dotenvPath = resolve(tempDir, ".env.local");
+    try {
+      writeFileSync(dotenvPath, "LLM_SERVICE=from-dotenv\n");
+      const baseEnv = { ...testEnv, NODE_ENV: "test", LLM_SERVICE: undefined, DOTENV_CONFIG_PATH: dotenvPath };
+      delete (baseEnv as any).LLM_SERVICE;
+
+      expect(loadEnv(baseEnv as any).LLM_SERVICE).toBeUndefined();
+      expect(loadEnv({ ...baseEnv, LOAD_DOTENV_IN_TEST: "1" } as any).LLM_SERVICE).toBe("from-dotenv");
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   it("serves health without authentication", async () => {
