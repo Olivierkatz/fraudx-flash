@@ -7,6 +7,7 @@ From the scaffold root:
 ```bash
 npm install
 WORKSPACE_API_KEY=... LLM_SERVICE=... LLM_MODEL_ID=... LLM_API_KEY=... npm run setup:env
+npm run typecheck
 npm run dev
 npm run verify:preview
 ```
@@ -37,6 +38,7 @@ using Workspace REST or local git fallbacks.
 Before substantial product work, run:
 
 ```bash
+npm run typecheck
 npm run verify:preview
 npm run build
 npm test
