@@ -1,0 +1,20 @@
+{
+  "$schema": "https://groundx-studio.s3.amazonaws.com/schemas/managed-project/v1.json",
+  "version": 1,
+  "projectId": "e851a424-245e-470b-b018-8f5c2bd2f701",
+  "repository": {
+    "url": "https://github.com/GroundX-Studio/workspace-e851a424-245e-470b-b018-8f5c2bd2f701-71fd3895.git",
+    "branch": "workspace/e851a424-245e-470b-b018-8f5c2bd2f701",
+    "baseBranch": "main"
+  },
+  "scaffoldIntake": {
+    "primarySurface": "chat-driven-viewer",
+    "capabilities": [
+      "chat",
+      "ingest",
+      "document-viewer"
+    ],
+    "onboarding": false,
+    "authMode": "customer"
+  }
+}
