@@ -11,6 +11,7 @@ import { createSessionRecord, clearSessionCookie, requireSession, sessionMiddlew
 import { sendUpstreamResponse } from "./services/http.js";
 import type { AppRepository, GroundXClient, GroundXPartnerClient, LlmClient } from "./types.js";
 import { createFlashModelsRoute } from "./routes/flashModelsRoute.js";
+import { createFlashUploadRoute } from "./routes/flashUploadRoute.js";
 import { createFileUploaderRoute } from "./routes/fileUploaderRoute.js";
 import { createChatWithSourcesRoute } from "./routes/chatWithSourcesRoute.js";
 import { MemoryFileUploaderRepository } from "./repositories/fileUploaderRepository.js";
@@ -290,6 +291,9 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
 
   // Flash: OpenAI model selector
   app.use("/api/flash/models", createFlashModelsRoute({ llmClient, requireSession: requireRuntimeSession }));
+
+  // Flash: direct document upload to GroundX local ingest
+  app.use("/api/flash/upload", createFlashUploadRoute({ env, requireSession: requireRuntimeSession }));
 
   // Widget: file uploader
   const fileUploaderRepo = new MemoryFileUploaderRepository();

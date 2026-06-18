@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import BoltIcon from "@mui/icons-material/BoltOutlined";
+import CloudUploadOutlinedIcon from "@mui/icons-material/CloudUploadOutlined";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
@@ -12,9 +16,7 @@ import Typography from "@mui/material/Typography";
 import { GxCard } from "@/shared/components/GxCard";
 import { GxSectionHeader } from "@/shared/components/GxSectionHeader";
 import { EducationalTooltip } from "@/shared/components/EducationalTooltip";
-import { FileUploaderProvider } from "@/contexts/FileUploaderContext";
 import { ChatWithSourcesProvider } from "@/contexts/ChatWithSourcesContext";
-import { GroundXFileUploader } from "@/shared/components/FileUploader";
 import { ChatWithSources } from "@/shared/components/ChatWithSources";
 import { NAVY, BODY_TEXT, GREEN } from "@/constants";
 
@@ -28,11 +30,16 @@ interface OpenAIModel {
   object: string;
 }
 
+type UploadState = "idle" | "uploading" | "success" | "error";
+
 export const Flash = () => {
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [selectedBucketId, setSelectedBucketId] = useState<number | "">("");
   const [models, setModels] = useState<OpenAIModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [uploadState, setUploadState] = useState<UploadState>("idle");
+  const [uploadedFileName, setUploadedFileName] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/v1/bucket")
@@ -59,6 +66,32 @@ export const Flash = () => {
       })
       .catch(() => {});
   }, []);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedBucketId) return;
+
+    setUploadState("uploading");
+    setUploadedFileName(file.name);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("bucketId", String(selectedBucketId));
+
+    try {
+      const res = await fetch("/api/flash/upload", { method: "POST", body: formData });
+      if (res.ok) {
+        setUploadState("success");
+      } else {
+        setUploadState("error");
+      }
+    } catch {
+      setUploadState("error");
+    }
+
+    // reset so same file can be re-uploaded
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const scope = selectedBucketId
     ? {
@@ -129,20 +162,34 @@ export const Flash = () => {
             education={
               <EducationalTooltip
                 ariaLabel="About document upload"
-                title="Upload PDFs, Word docs, Excel files, or images. Flash queries the document immediately and ingests it into your claim bucket in the background."
+                title="Upload PDFs, Word docs, Excel files, or images. Flash ingests the file into your claim bucket in the background while you query it."
               />
             }
           />
           <Divider sx={{ my: 2 }} />
-          <FileUploaderProvider>
-            <GroundXFileUploader
-              bucketId={selectedBucketId as number}
-              bucketName={buckets.find((b) => b.bucketId === selectedBucketId)?.name}
-              onIngestStarted={(processIds) => {
-                console.info("Ingest started", processIds);
-              }}
-            />
-          </FileUploaderProvider>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,.xlsx,.csv,.txt,.png,.jpg,.jpeg"
+            style={{ display: "none" }}
+            onChange={handleFileChange}
+          />
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <Button
+              variant="outlined"
+              startIcon={uploadState === "uploading" ? <CircularProgress size={16} /> : <CloudUploadOutlinedIcon />}
+              disabled={uploadState === "uploading"}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploadState === "uploading" ? "Uploading…" : "Choose file"}
+            </Button>
+            {uploadState === "success" && (
+              <Chip label={`✓ ${uploadedFileName} ingesting…`} color="success" size="small" />
+            )}
+            {uploadState === "error" && (
+              <Chip label="Upload failed — try again" color="error" size="small" />
+            )}
+          </Stack>
         </GxCard>
       )}
 
