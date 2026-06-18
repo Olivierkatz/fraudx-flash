@@ -57,7 +57,7 @@ const envSchema = z.object({
   LLM_AUTH_SCHEME: z.string().default("Bearer"),
   LLM_MODEL_ID: z.string().optional(),
 }).superRefine((env, ctx) => {
-  const requiresMysql = env.NODE_ENV === "production" || env.APP_REPOSITORY_MODE === "mysql";
+  const requiresMysql = env.APP_REPOSITORY_MODE === "mysql" || (env.NODE_ENV === "production" && env.APP_REPOSITORY_MODE !== "memory");
   for (const key of ["MYSQL_HOST", "MYSQL_DATABASE", "MYSQL_USER", "MYSQL_PASSWORD"] as const) {
     if (requiresMysql && !env[key]) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: `${key} is required when using MySQL` });
