@@ -305,7 +305,7 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
   if (env.NODE_ENV === "production") {
     const distPath = join(process.cwd(), "app/dist");
     app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
+    app.get(/.*/, (_req, res) => {
       res.sendFile(join(distPath, "index.html"));
     });
   }
