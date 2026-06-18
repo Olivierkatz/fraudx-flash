@@ -1,3 +1,4 @@
+import BoltOutlinedIcon from "@mui/icons-material/BoltOutlined";
 import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
 import MonitorHeartOutlinedIcon from "@mui/icons-material/MonitorHeartOutlined";
 import { ReactElement } from "react";
@@ -16,6 +17,10 @@ export interface AppNavigationSection {
 }
 
 export const APP_NAVIGATION_TOP_SECTIONS: AppNavigationSection[] = [
+  {
+    label: "FraudX Flash",
+    items: [{ label: "Flash", path: ROUTER_PATHS.FLASH, icon: <BoltOutlinedIcon /> }],
+  },
   {
     label: "Workspace",
     items: [{ label: "Home", path: ROUTER_PATHS.HOME, icon: <HomeOutlinedIcon /> }],

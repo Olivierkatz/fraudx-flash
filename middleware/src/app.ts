@@ -9,6 +9,13 @@ import { encryptSecret } from "./lib/crypto.js";
 import { createSessionRecord, clearSessionCookie, requireSession, sessionMiddleware, setSessionCookie } from "./middleware/session.js";
 import { sendUpstreamResponse } from "./services/http.js";
 import type { AppRepository, GroundXClient, GroundXPartnerClient, LlmClient } from "./types.js";
+import { createFlashModelsRoute } from "./routes/flashModelsRoute.js";
+import { createFileUploaderRoute } from "./routes/fileUploaderRoute.js";
+import { createChatWithSourcesRoute } from "./routes/chatWithSourcesRoute.js";
+import { MemoryFileUploaderRepository } from "./repositories/fileUploaderRepository.js";
+import { MemoryChatWithSourcesRepository } from "./repositories/chatWithSourcesRepository.js";
+import { GroundXUploadService } from "./services/groundxUploadService.js";
+import { FetchGroundXRemoteIngestClient } from "./services/fetchGroundXRemoteIngestClient.js";
 
 function basicCredentials(req: Request): { email?: string; password?: string } {
   const header = req.headers.authorization;
@@ -278,6 +285,20 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
       next(error);
     }
   });
+
+
+  // Flash: OpenAI model selector
+  app.use("/api/flash/models", createFlashModelsRoute({ llmClient, requireSession: requireRuntimeSession }));
+
+  // Widget: file uploader
+  const fileUploaderRepo = new MemoryFileUploaderRepository();
+  const uploadService = new GroundXUploadService({ uploadBaseUrl: env.GROUNDX_BASE_URL ?? "https://api.eyelevel.ai/upload" });
+  const ingestClient = new FetchGroundXRemoteIngestClient({ groundxBaseUrl: env.GROUNDX_BASE_URL ?? "https://api.groundx.ai/api/v1", groundxApiKey: workspaceApiKey(env) ?? "" });
+  app.use("/api/widgets/file-uploader", createFileUploaderRoute({ repository: fileUploaderRepo, uploadService, ingestClient, requireSession: requireRuntimeSession }));
+
+  // Widget: chat with sources
+  const chatRepo = new MemoryChatWithSourcesRepository();
+  app.use("/api/widgets/chat-with-sources", createChatWithSourcesRoute({ repository: chatRepo, groundxClient, llmClient, requireSession: requireRuntimeSession }));
 
   app.use((error: any, _req: Request, res: Response, _next: express.NextFunction) => {
     const status = Number(error?.status) || 500;

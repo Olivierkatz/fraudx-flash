@@ -6,6 +6,7 @@ import { AppStatus } from "@/views/AppStatus/AppStatus";
 import { Banned } from "@/views/Banned/Banned";
 import { OnboardingProvider } from "@/contexts/OnboardingContext/OnboardingProvider";
 import { Dashboard } from "@/views/CoreLayouts/Dashboard";
+import { Flash } from "@/views/Flash/Flash";
 import { Health } from "@/views/Health/Health";
 import { Home } from "@/views/Home/Home";
 import { Login } from "@/views/Auth/Login";
@@ -34,9 +35,10 @@ export const router = createBrowserRouter([
     ),
     errorElement: <>Something went wrong</>,
     children: [
-      { path: "", element: <Navigate to={ROUTER_PATHS.HOME} /> },
+      { path: "", element: <Navigate to={ROUTER_PATHS.FLASH} /> },
       { path: ROUTER_PATHS.APP_STATUS, element: <AppStatus /> },
       { path: ROUTER_PATHS.HOME, element: <Home /> },
+      { path: ROUTER_PATHS.FLASH, element: <Flash /> },
     ],
   },
   ...authRoutes,
