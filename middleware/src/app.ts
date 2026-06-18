@@ -303,7 +303,7 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
 
   // Serve the built React frontend
   if (env.NODE_ENV === "production") {
-    const distPath = join(process.cwd(), "app/dist");
+    const distPath = join(process.cwd(), "../app/dist");
     app.use(express.static(distPath));
     app.get(/.*/, (_req, res) => {
       res.sendFile(join(distPath, "index.html"));
