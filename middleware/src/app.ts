@@ -1,8 +1,7 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { type Express, type Request, type RequestHandler, type Response } from "express";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { join } from "path";
 import { pinoHttp } from "pino-http";
 
 import type { AppEnv } from "./config/env.js";
@@ -304,9 +303,7 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
 
   // Serve the built React frontend
   if (env.NODE_ENV === "production") {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const distPath = join(__dirname, "../../app/dist");
+    const distPath = join(process.cwd(), "app/dist");
     app.use(express.static(distPath));
     app.get("*", (_req, res) => {
       res.sendFile(join(distPath, "index.html"));
