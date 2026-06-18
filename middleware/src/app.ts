@@ -293,7 +293,7 @@ export function createApp({ env, repository, partnerClient, groundxClient, llmCl
 
   // Widget: file uploader
   const fileUploaderRepo = new MemoryFileUploaderRepository();
-  const uploadService = new GroundXUploadService({ uploadBaseUrl: "https://api.eyelevel.ai/upload" });
+  const uploadService = new GroundXUploadService({ uploadBaseUrl: "https://api.eyelevel.ai/upload", groundxApiKey: workspaceApiKey(env) ?? "" });
   const ingestClient = new FetchGroundXRemoteIngestClient({ groundxBaseUrl: env.GROUNDX_BASE_URL ?? "https://api.groundx.ai/api/v1", groundxApiKey: workspaceApiKey(env) ?? "" });
   app.use("/api/widgets/file-uploader", createFileUploaderRoute({ repository: fileUploaderRepo, uploadService, ingestClient, requireSession: requireRuntimeSession }));
 

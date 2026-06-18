@@ -1,5 +1,6 @@
 export interface GroundXUploadServiceConfig {
   uploadBaseUrl: string;
+  groundxApiKey?: string;
 }
 
 export interface GroundXUploadParameters {
@@ -62,7 +63,9 @@ export class GroundXUploadService {
     requestUrl.searchParams.set("name", fileName);
     requestUrl.searchParams.set("type", fileType);
 
-    const response = await this.fetchImpl(requestUrl);
+    const headers: Record<string, string> = {};
+    if (this.config.groundxApiKey) headers["X-API-Key"] = this.config.groundxApiKey;
+    const response = await this.fetchImpl(requestUrl, { headers });
     if (!response.ok) {
       throw new Error(`GroundX upload service failed with ${response.status}`);
     }
