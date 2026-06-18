@@ -208,3 +208,4 @@ so it identifies the project across deploys. The tag is reused on every push to
 that environment; `imagePullPolicy: Always` is what makes Kubernetes re-pull on
 each `helm upgrade`. Rollback by tag is not possible with this scheme; roll back
 by image digest, or re-run the workflow against an older commit.
+
